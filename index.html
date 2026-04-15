@@ -33,7 +33,7 @@
   .stage {
     position: relative;
     width: 100%;
-    max-width: 720px;
+    max-width: 1100px;
     flex: 0 0 auto;
     display: flex;
     justify-content: center;
@@ -41,12 +41,15 @@
   }
   canvas {
     display: block;
-    max-width: 100%;
-    max-height: 60vh;
-    width: auto;
+    width: 100%;
     height: auto;
+    max-height: 82vh;
+    object-fit: contain;
     background: #000;
     border-radius: 8px;
+  }
+  @media (min-width: 900px) {
+    canvas { max-height: 78vh; }
   }
   .fps {
     position: absolute;
@@ -160,8 +163,8 @@
   }
   .placeholder {
     width: 100%;
-    aspect-ratio: 4 / 3;
-    max-height: 60vh;
+    aspect-ratio: 16 / 9;
+    max-height: 82vh;
     background: #0f0f0f;
     border-radius: 8px;
     display: flex;
@@ -474,8 +477,8 @@
       audio: false,
       video: {
         facingMode: { ideal: facingMode },
-        width: { ideal: 640 },
-        height: { ideal: 480 }
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
       }
     };
 
@@ -486,7 +489,7 @@
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { width: { ideal: 640 }, height: { ideal: 480 } }
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } }
         });
       } catch (err2) {
         throw err2;
