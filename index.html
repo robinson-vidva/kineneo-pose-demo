@@ -34,7 +34,7 @@
     position: relative;
     width: 100%;
     max-width: 720px;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -42,7 +42,7 @@
   canvas {
     display: block;
     max-width: 100%;
-    max-height: 70vh;
+    max-height: 60vh;
     width: auto;
     height: auto;
     background: #000;
@@ -60,10 +60,23 @@
     border-radius: 4px;
     pointer-events: none;
   }
+  .tracking-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.55);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .tracking-badge.tracking { color: #00FF88; }
+  .tracking-badge.lost { color: #ff6b6b; }
   .controls {
     margin-top: 14px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
   }
@@ -72,8 +85,8 @@
     color: #f0f0f0;
     border: 1px solid #3a3a3a;
     border-radius: 6px;
-    padding: 10px 18px;
-    font-size: 14px;
+    padding: 9px 14px;
+    font-size: 13px;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
@@ -87,6 +100,11 @@
     font-weight: 600;
   }
   button.primary:hover:not(:disabled) { background: #1aff97; }
+  button.toggle.on {
+    background: #0a3a22;
+    color: #00FF88;
+    border-color: #00FF88;
+  }
   .status {
     margin-top: 10px;
     min-height: 20px;
@@ -95,6 +113,44 @@
     max-width: 520px;
   }
   .status.error { color: #ff6b6b; }
+  .panel {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 12px;
+    background: #0f0f0f;
+    border: 1px solid #262626;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #cfcfcf;
+  }
+  .panel.hidden { display: none; }
+  .panel .section-title {
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 10px;
+    margin: 0 0 6px 0;
+  }
+  .panel .section-title:not(:first-child) { margin-top: 12px; }
+  .kv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 4px 16px;
+  }
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0;
+    border-bottom: 1px dotted #1f1f1f;
+  }
+  .kv .k { color: #9a9a9a; }
+  .kv .v { color: #e8e8e8; }
+  .kv .v.good { color: #00FF88; }
+  .kv .v.warn { color: #ffb347; }
+  .kv .v.bad { color: #ff6b6b; }
   footer {
     margin-top: auto;
     padding-top: 16px;
@@ -105,7 +161,7 @@
   .placeholder {
     width: 100%;
     aspect-ratio: 4 / 3;
-    max-height: 70vh;
+    max-height: 60vh;
     background: #0f0f0f;
     border-radius: 8px;
     display: flex;
@@ -124,14 +180,38 @@
     <div class="placeholder" id="placeholder">Tap "Start Camera" to begin</div>
     <canvas id="canvas" style="display:none;"></canvas>
     <div class="fps" id="fps" style="display:none;">0 FPS</div>
+    <div class="tracking-badge lost" id="trackingBadge" style="display:none;">NO POSE</div>
   </div>
 
   <div class="controls">
     <button id="startBtn" class="primary" type="button">Start Camera</button>
     <button id="flipBtn" type="button" disabled>Switch Camera</button>
+    <button id="labelsBtn" class="toggle on" type="button" disabled>Labels</button>
+    <button id="anglesBtn" class="toggle on" type="button" disabled>Angles</button>
   </div>
 
   <div class="status" id="status"></div>
+
+  <div class="panel hidden" id="panel">
+    <div class="section-title">Detection</div>
+    <div class="kv-grid">
+      <div class="kv"><span class="k">Status</span><span class="v" id="m_status">-</span></div>
+      <div class="kv"><span class="k">Landmarks visible</span><span class="v" id="m_visible">-</span></div>
+      <div class="kv"><span class="k">Mean confidence</span><span class="v" id="m_conf">-</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v">MediaPipe Pose (full)</span></div>
+    </div>
+    <div class="section-title">Joint Angles (deg)</div>
+    <div class="kv-grid">
+      <div class="kv"><span class="k">L shoulder</span><span class="v" id="a_lshoulder">-</span></div>
+      <div class="kv"><span class="k">R shoulder</span><span class="v" id="a_rshoulder">-</span></div>
+      <div class="kv"><span class="k">L elbow</span><span class="v" id="a_lelbow">-</span></div>
+      <div class="kv"><span class="k">R elbow</span><span class="v" id="a_relbow">-</span></div>
+      <div class="kv"><span class="k">L hip</span><span class="v" id="a_lhip">-</span></div>
+      <div class="kv"><span class="k">R hip</span><span class="v" id="a_rhip">-</span></div>
+      <div class="kv"><span class="k">L knee</span><span class="v" id="a_lknee">-</span></div>
+      <div class="kv"><span class="k">R knee</span><span class="v" id="a_rknee">-</span></div>
+    </div>
+  </div>
 
   <footer>No data is recorded or saved. All processing happens on your device.</footer>
 </div>
@@ -148,16 +228,51 @@
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const fpsEl = document.getElementById('fps');
+  const badge = document.getElementById('trackingBadge');
   const startBtn = document.getElementById('startBtn');
   const flipBtn = document.getElementById('flipBtn');
+  const labelsBtn = document.getElementById('labelsBtn');
+  const anglesBtn = document.getElementById('anglesBtn');
   const statusEl = document.getElementById('status');
   const placeholder = document.getElementById('placeholder');
+  const panel = document.getElementById('panel');
+
+  const m_status = document.getElementById('m_status');
+  const m_visible = document.getElementById('m_visible');
+  const m_conf = document.getElementById('m_conf');
+
+  // MediaPipe Pose landmark index -> name (33 landmarks)
+  const LM_NAMES = [
+    'nose','L.eye.in','L.eye','L.eye.out','R.eye.in','R.eye','R.eye.out',
+    'L.ear','R.ear','mouth.L','mouth.R',
+    'L.shoulder','R.shoulder','L.elbow','R.elbow','L.wrist','R.wrist',
+    'L.pinky','R.pinky','L.index','R.index','L.thumb','R.thumb',
+    'L.hip','R.hip','L.knee','R.knee','L.ankle','R.ankle',
+    'L.heel','R.heel','L.foot.ix','R.foot.ix'
+  ];
+
+  // Subset we label on-canvas to avoid clutter around the face.
+  const LABEL_INDICES = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+
+  // Joints to compute (angle at vertex B formed by A-B-C).
+  const ANGLE_DEFS = [
+    { key: 'a_lshoulder', label: 'L.shl', a: 13, b: 11, c: 23 },
+    { key: 'a_rshoulder', label: 'R.shl', a: 14, b: 12, c: 24 },
+    { key: 'a_lelbow',    label: 'L.elb', a: 11, b: 13, c: 15 },
+    { key: 'a_relbow',    label: 'R.elb', a: 12, b: 14, c: 16 },
+    { key: 'a_lhip',      label: 'L.hip', a: 11, b: 23, c: 25 },
+    { key: 'a_rhip',      label: 'R.hip', a: 12, b: 24, c: 26 },
+    { key: 'a_lknee',     label: 'L.knee', a: 23, b: 25, c: 27 },
+    { key: 'a_rknee',     label: 'R.knee', a: 24, b: 26, c: 28 }
+  ];
 
   let pose = null;
   let camera = null;
   let currentStream = null;
   let facingMode = 'environment';
   let running = false;
+  let showLabels = true;
+  let showAngles = true;
 
   let frameCount = 0;
   let lastFpsUpdate = performance.now();
@@ -175,9 +290,72 @@
     }
   }
 
+  function setMetric(el, text, cls) {
+    el.textContent = text;
+    el.classList.remove('good', 'warn', 'bad');
+    if (cls) el.classList.add(cls);
+  }
+
+  function angleDeg(a, b, c) {
+    const v1x = a.x - b.x, v1y = a.y - b.y;
+    const v2x = c.x - b.x, v2y = c.y - b.y;
+    const dot = v1x * v2x + v1y * v2y;
+    const m1 = Math.hypot(v1x, v1y);
+    const m2 = Math.hypot(v2x, v2y);
+    if (m1 === 0 || m2 === 0) return null;
+    let cos = dot / (m1 * m2);
+    if (cos > 1) cos = 1;
+    if (cos < -1) cos = -1;
+    return (Math.acos(cos) * 180) / Math.PI;
+  }
+
+  function drawAngleArc(ctx, b, a, c, w, h, deg) {
+    // Draw a small arc at vertex b between rays b->a and b->c
+    const bx = b.x * w, by = b.y * h;
+    const ang1 = Math.atan2(a.y * h - by, a.x * w - bx);
+    const ang2 = Math.atan2(c.y * h - by, c.x * w - bx);
+    const r = Math.max(14, Math.min(w, h) * 0.03);
+    // Determine the shorter arc direction
+    let diff = ang2 - ang1;
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    const counterClockwise = diff < 0;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 179, 71, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(bx, by, r, ang1, ang2, counterClockwise);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTextBadge(ctx, x, y, text, color) {
+    ctx.save();
+    ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, monospace';
+    const padX = 4, padY = 2;
+    const metrics = ctx.measureText(text);
+    const tw = metrics.width + padX * 2;
+    const th = 14 + padY * 2;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillRect(x, y, tw, th);
+    ctx.fillStyle = color || '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + padX, y + th / 2);
+    ctx.restore();
+  }
+
+  function clearPanel() {
+    setMetric(m_status, 'NO POSE', 'bad');
+    setMetric(m_visible, '- / 33');
+    setMetric(m_conf, '-');
+    ANGLE_DEFS.forEach(d => setMetric(document.getElementById(d.key), '-'));
+    badge.textContent = 'NO POSE';
+    badge.classList.remove('tracking');
+    badge.classList.add('lost');
+  }
+
   function onResults(results) {
     if (!results.image) return;
-
     const w = results.image.width;
     const h = results.image.height;
     ensureCanvasSize(w, h);
@@ -186,21 +364,83 @@
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(results.image, 0, 0, w, h);
 
-    if (results.poseLandmarks) {
+    const lms = results.poseLandmarks;
+    if (lms && lms.length) {
       if (window.drawConnectors && window.POSE_CONNECTIONS) {
-        window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS, {
+        window.drawConnectors(ctx, lms, window.POSE_CONNECTIONS, {
           color: '#00FF88',
           lineWidth: 2
         });
       }
       if (window.drawLandmarks) {
-        window.drawLandmarks(ctx, results.poseLandmarks, {
+        window.drawLandmarks(ctx, lms, {
           color: '#FFFFFF',
           fillColor: '#FFFFFF',
           lineWidth: 1,
           radius: 4
         });
       }
+
+      // Angle arcs + joint-angle labels
+      const angleValues = {};
+      for (const d of ANGLE_DEFS) {
+        const A = lms[d.a], B = lms[d.b], C = lms[d.c];
+        const visA = (A && A.visibility != null) ? A.visibility : 1;
+        const visB = (B && B.visibility != null) ? B.visibility : 1;
+        const visC = (C && C.visibility != null) ? C.visibility : 1;
+        if (!A || !B || !C || visA < 0.5 || visB < 0.5 || visC < 0.5) {
+          angleValues[d.key] = null;
+          continue;
+        }
+        const deg = angleDeg(A, B, C);
+        angleValues[d.key] = deg;
+        if (showAngles && deg != null) {
+          drawAngleArc(ctx, B, A, C, w, h, deg);
+          const bx = B.x * w, by = B.y * h;
+          drawTextBadge(ctx, bx + 8, by - 8, d.label + ' ' + deg.toFixed(0), '#ffb347');
+        }
+      }
+
+      // Landmark name labels (subset to avoid face clutter)
+      if (showLabels) {
+        for (const i of LABEL_INDICES) {
+          const p = lms[i];
+          if (!p) continue;
+          const vis = (p.visibility != null) ? p.visibility : 1;
+          if (vis < 0.5) continue;
+          const x = p.x * w, y = p.y * h;
+          drawTextBadge(ctx, x + 6, y + 6, LM_NAMES[i], '#ffffff');
+        }
+      }
+
+      // Metrics
+      let visibleCount = 0;
+      let confSum = 0;
+      for (const p of lms) {
+        const v = (p && p.visibility != null) ? p.visibility : 0;
+        confSum += v;
+        if (v >= 0.5) visibleCount++;
+      }
+      const meanConf = confSum / lms.length;
+      setMetric(m_status, 'TRACKING', 'good');
+      badge.textContent = 'TRACKING';
+      badge.classList.add('tracking');
+      badge.classList.remove('lost');
+
+      const visCls = visibleCount >= 20 ? 'good' : (visibleCount >= 10 ? 'warn' : 'bad');
+      setMetric(m_visible, visibleCount + ' / ' + lms.length, visCls);
+
+      const confCls = meanConf >= 0.75 ? 'good' : (meanConf >= 0.5 ? 'warn' : 'bad');
+      setMetric(m_conf, meanConf.toFixed(2), confCls);
+
+      for (const d of ANGLE_DEFS) {
+        const v = angleValues[d.key];
+        const el = document.getElementById(d.key);
+        if (v == null) setMetric(el, '-');
+        else setMetric(el, v.toFixed(1) + ' deg');
+      }
+    } else {
+      clearPanel();
     }
     ctx.restore();
 
@@ -243,7 +483,6 @@
     try {
       stream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (err) {
-      // Retry without facingMode constraint as a fallback
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
@@ -280,6 +519,18 @@
     return pose;
   }
 
+  function buildMpCamera() {
+    return new window.Camera(video, {
+      onFrame: async () => {
+        if (pose && video.readyState >= 2) {
+          await pose.send({ image: video });
+        }
+      },
+      width: video.videoWidth || 640,
+      height: video.videoHeight || 480
+    });
+  }
+
   async function start() {
     if (running) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -298,25 +549,22 @@
       await startStream();
       initPose();
 
-      camera = new window.Camera(video, {
-        onFrame: async () => {
-          if (pose && video.readyState >= 2) {
-            await pose.send({ image: video });
-          }
-        },
-        width: video.videoWidth || 640,
-        height: video.videoHeight || 480
-      });
+      camera = buildMpCamera();
       camera.start();
 
       ensureCanvasSize(video.videoWidth || 640, video.videoHeight || 480);
       placeholder.style.display = 'none';
       canvas.style.display = 'block';
       fpsEl.style.display = 'block';
+      badge.style.display = 'block';
+      panel.classList.remove('hidden');
       flipBtn.disabled = false;
+      labelsBtn.disabled = false;
+      anglesBtn.disabled = false;
       startBtn.textContent = 'Stop';
       startBtn.disabled = false;
       running = true;
+      clearPanel();
       setStatus('');
     } catch (err) {
       startBtn.disabled = false;
@@ -340,8 +588,12 @@
     running = false;
     canvas.style.display = 'none';
     fpsEl.style.display = 'none';
+    badge.style.display = 'none';
+    panel.classList.add('hidden');
     placeholder.style.display = 'flex';
     flipBtn.disabled = true;
+    labelsBtn.disabled = true;
+    anglesBtn.disabled = true;
     startBtn.textContent = 'Start Camera';
     startBtn.disabled = false;
     setStatus('');
@@ -358,15 +610,7 @@
         currentStream = null;
       }
       await startStream();
-      camera = new window.Camera(video, {
-        onFrame: async () => {
-          if (pose && video.readyState >= 2) {
-            await pose.send({ image: video });
-          }
-        },
-        width: video.videoWidth || 640,
-        height: video.videoHeight || 480
-      });
+      camera = buildMpCamera();
       camera.start();
       ensureCanvasSize(video.videoWidth || 640, video.videoHeight || 480);
     } catch (err) {
@@ -376,14 +620,16 @@
     }
   }
 
-  startBtn.addEventListener('click', () => {
-    if (running) {
-      stop();
-    } else {
-      start();
-    }
-  });
+  startBtn.addEventListener('click', () => { if (running) stop(); else start(); });
   flipBtn.addEventListener('click', flip);
+  labelsBtn.addEventListener('click', () => {
+    showLabels = !showLabels;
+    labelsBtn.classList.toggle('on', showLabels);
+  });
+  anglesBtn.addEventListener('click', () => {
+    showAngles = !showAngles;
+    anglesBtn.classList.toggle('on', showAngles);
+  });
 
   window.addEventListener('pagehide', () => { stopCurrentStream(); });
 })();
