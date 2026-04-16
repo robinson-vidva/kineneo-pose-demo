@@ -157,6 +157,7 @@
     KN.neuro.setHintVisible(key !== 'holistic');
     KN.neuro.resetState();
     KN.neuro.clearPanel();
+    if (KN.clearTrails) KN.clearTrails();
   }
 
   function switchModel(key) {
