@@ -418,6 +418,172 @@
     ctx.restore();
   }
 
+  var n_facesym = document.getElementById('n_facesym');
+  var n_blink = document.getElementById('n_blink');
+  var n_sway = document.getElementById('n_sway');
+  var n_motorsym = document.getElementById('n_motorsym');
+  var neuroHint = document.getElementById('neuroHint');
+
+  var neuroState = {
+    blinkTimes: [],
+    eyeClosed: false,
+    hipHistory: [],
+    asymHistory: []
+  };
+
+  function clearNeuroPanel() {
+    setMetric(n_facesym, '-');
+    setMetric(n_blink, '-');
+    setMetric(n_sway, '-');
+    setMetric(n_motorsym, '-');
+  }
+
+  function resetNeuroState() {
+    neuroState.blinkTimes = [];
+    neuroState.eyeClosed = false;
+    neuroState.hipHistory = [];
+    neuroState.asymHistory = [];
+  }
+
+  // Face symmetry: average min/max distance ratio from nose tip across 3 L-R landmark pairs.
+  // Returns value in [0,1], 1 = perfectly symmetric.
+  function computeFaceSymmetry(face) {
+    if (!face || face.length < 300) return null;
+    var nose = face[1];
+    if (!nose) return null;
+    var pairs = [[61, 291], [33, 263], [70, 300]];
+    var ratios = [];
+    for (var i = 0; i < pairs.length; i++) {
+      var L = face[pairs[i][0]], R = face[pairs[i][1]];
+      if (!L || !R) continue;
+      var dL = Math.hypot(L.x - nose.x, L.y - nose.y);
+      var dR = Math.hypot(R.x - nose.x, R.y - nose.y);
+      if (dL === 0 || dR === 0) continue;
+      ratios.push(Math.min(dL, dR) / Math.max(dL, dR));
+    }
+    if (!ratios.length) return null;
+    var s = 0;
+    for (var j = 0; j < ratios.length; j++) s += ratios[j];
+    return s / ratios.length;
+  }
+
+  // Eye aspect ratio (vertical lid gap / horizontal eye width), averaged L+R.
+  function computeEAR(face) {
+    var lT = face[159], lB = face[145], lO = face[33], lI = face[133];
+    var rT = face[386], rB = face[374], rO = face[263], rI = face[362];
+    if (!lT || !lB || !lO || !lI || !rT || !rB || !rO || !rI) return null;
+    var lV = Math.hypot(lT.x - lB.x, lT.y - lB.y);
+    var lH = Math.hypot(lO.x - lI.x, lO.y - lI.y);
+    var rV = Math.hypot(rT.x - rB.x, rT.y - rB.y);
+    var rH = Math.hypot(rO.x - rI.x, rO.y - rI.y);
+    if (lH === 0 || rH === 0) return null;
+    return ((lV / lH) + (rV / rH)) / 2;
+  }
+
+  // Update rolling blink buffer. Returns blinks-per-minute estimate from the last 30s.
+  function updateBlinkRate(face, now) {
+    var ear = computeEAR(face);
+    if (ear == null) return null;
+    var CLOSED = 0.15;
+    var OPEN = 0.22;
+    if (!neuroState.eyeClosed && ear < CLOSED) {
+      neuroState.eyeClosed = true;
+      neuroState.blinkTimes.push(now);
+    } else if (neuroState.eyeClosed && ear > OPEN) {
+      neuroState.eyeClosed = false;
+    }
+    var windowMs = 30000;
+    var cutoff = now - windowMs;
+    while (neuroState.blinkTimes.length && neuroState.blinkTimes[0] < cutoff) {
+      neuroState.blinkTimes.shift();
+    }
+    var elapsedSec = Math.min(windowMs, now - (neuroState.blinkTimes.length ? neuroState.blinkTimes[0] : now - 1000)) / 1000;
+    if (elapsedSec < 2) return null;
+    return (neuroState.blinkTimes.length / elapsedSec) * 60;
+  }
+
+  // Postural sway: std-dev of hip center over 5s window, normalized by shoulder width.
+  function updatePosturalSway(pose, now) {
+    if (!pose || pose.length < 25) return null;
+    var lHip = pose[23], rHip = pose[24], lSh = pose[11], rSh = pose[12];
+    if (!lHip || !rHip || !lSh || !rSh) return null;
+    var visOK = (lHip.visibility || 0) > 0.5 && (rHip.visibility || 0) > 0.5 && (lSh.visibility || 0) > 0.5 && (rSh.visibility || 0) > 0.5;
+    if (!visOK) return null;
+    var hx = (lHip.x + rHip.x) / 2, hy = (lHip.y + rHip.y) / 2;
+    var shoulderW = Math.hypot(lSh.x - rSh.x, lSh.y - rSh.y);
+    if (shoulderW < 0.01) return null;
+    neuroState.hipHistory.push({ t: now, x: hx, y: hy });
+    var cutoff = now - 5000;
+    while (neuroState.hipHistory.length && neuroState.hipHistory[0].t < cutoff) {
+      neuroState.hipHistory.shift();
+    }
+    if (neuroState.hipHistory.length < 10) return null;
+    var mx = 0, my = 0;
+    for (var i = 0; i < neuroState.hipHistory.length; i++) {
+      mx += neuroState.hipHistory[i].x; my += neuroState.hipHistory[i].y;
+    }
+    mx /= neuroState.hipHistory.length; my /= neuroState.hipHistory.length;
+    var vx = 0, vy = 0;
+    for (var k = 0; k < neuroState.hipHistory.length; k++) {
+      vx += Math.pow(neuroState.hipHistory[k].x - mx, 2);
+      vy += Math.pow(neuroState.hipHistory[k].y - my, 2);
+    }
+    vx /= neuroState.hipHistory.length; vy /= neuroState.hipHistory.length;
+    var swayMag = Math.sqrt(vx + vy);
+    return swayMag / shoulderW;
+  }
+
+  // Motor symmetry: avg abs L-R difference (shoulder + elbow angles), degrees.
+  function updateMotorSymmetry(ja, now) {
+    if (!ja) return null;
+    if (ja.a_lshoulder == null || ja.a_rshoulder == null) return null;
+    if (ja.a_lelbow == null || ja.a_relbow == null) return null;
+    var shDiff = Math.abs(ja.a_lshoulder - ja.a_rshoulder);
+    var elDiff = Math.abs(ja.a_lelbow - ja.a_relbow);
+    var avg = (shDiff + elDiff) / 2;
+    neuroState.asymHistory.push({ t: now, value: avg });
+    var cutoff = now - 5000;
+    while (neuroState.asymHistory.length && neuroState.asymHistory[0].t < cutoff) {
+      neuroState.asymHistory.shift();
+    }
+    if (neuroState.asymHistory.length < 5) return null;
+    var s = 0;
+    for (var i = 0; i < neuroState.asymHistory.length; i++) s += neuroState.asymHistory[i].value;
+    return s / neuroState.asymHistory.length;
+  }
+
+  function updateNeuroMetrics(face, pose, jointAngles) {
+    var now = performance.now();
+
+    var sym = computeFaceSymmetry(face);
+    if (sym == null) setMetric(n_facesym, '-');
+    else {
+      var symCls = sym >= 0.95 ? 'good' : (sym >= 0.88 ? 'warn' : 'bad');
+      setMetric(n_facesym, sym.toFixed(3), symCls);
+    }
+
+    var br = updateBlinkRate(face || [], now);
+    if (br == null) setMetric(n_blink, '-');
+    else {
+      var brCls = (br >= 12 && br <= 25) ? 'good' : ((br >= 6 && br < 12) || (br > 25 && br <= 35) ? 'warn' : 'bad');
+      setMetric(n_blink, br.toFixed(1), brCls);
+    }
+
+    var sway = updatePosturalSway(pose, now);
+    if (sway == null) setMetric(n_sway, '-');
+    else {
+      var swCls = sway < 0.03 ? 'good' : (sway < 0.07 ? 'warn' : 'bad');
+      setMetric(n_sway, sway.toFixed(3), swCls);
+    }
+
+    var ms = updateMotorSymmetry(jointAngles, now);
+    if (ms == null) setMetric(n_motorsym, '-');
+    else {
+      var msCls = ms < 10 ? 'good' : (ms < 25 ? 'warn' : 'bad');
+      setMetric(n_motorsym, ms.toFixed(1) + ' deg', msCls);
+    }
+  }
+
   function clearPanel() {
     setMetric(m_status, 'NO POSE', 'bad');
     setMetric(m_persons, '-');
@@ -427,6 +593,7 @@
     badge.textContent = 'NO POSE';
     badge.classList.remove('tracking');
     badge.classList.add('lost');
+    clearNeuroPanel();
   }
 
   function updateMetrics(stats) {
@@ -681,6 +848,7 @@
               totalVis += (rhLms ? rhLms.length : 0);
               totalVis += (faceLms ? faceLms.length : 0);
               var totalPossible = 33 + (lhLms ? 21 : 0) + (rhLms ? 21 : 0) + (faceLms ? 468 : 0);
+              updateNeuroMetrics(faceLms, poseLms, ja);
               cx.restore();
               resolve({ tracking: true, numPersons: 1, landmarkCount: totalVis, totalLandmarks: totalPossible, meanConfidence: confS / poseLms.length, jointAngles: ja });
             } else {
@@ -801,6 +969,9 @@
     });
     modelSubtitle.textContent = MODEL_INFO[key].desc;
     m_model.textContent = MODEL_INFO[key].name;
+    neuroHint.classList.toggle('hidden', key === 'holistic');
+    resetNeuroState();
+    clearNeuroPanel();
   }
 
   function switchModel(key) {
