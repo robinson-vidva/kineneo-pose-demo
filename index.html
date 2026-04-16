@@ -154,6 +154,23 @@
   .kv .v.good { color: #00FF88; }
   .kv .v.warn { color: #ffb347; }
   .kv .v.bad { color: #ff6b6b; }
+  .neuro-disclaimer {
+    font-size: 10px;
+    color: #ff6b6b;
+    background: #2a0f0f;
+    border: 1px solid #3a1a1a;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .neuro-hint {
+    font-size: 11px;
+    color: #ffb347;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .neuro-hint.hidden { display: none; }
   footer {
     margin-top: auto;
     padding-top: 16px;
@@ -240,6 +257,15 @@
       <div class="kv"><span class="k">R hip</span><span class="v" id="a_rhip">-</span></div>
       <div class="kv"><span class="k">L knee</span><span class="v" id="a_lknee">-</span></div>
       <div class="kv"><span class="k">R knee</span><span class="v" id="a_rknee">-</span></div>
+    </div>
+    <div class="section-title">Neuro Screen (POC)</div>
+    <div class="neuro-disclaimer">Research proof-of-concept. Not a medical device. Not for diagnosis.</div>
+    <div class="neuro-hint" id="neuroHint">Switch to Holistic model for face and body signals.</div>
+    <div class="kv-grid" id="neuroGrid">
+      <div class="kv"><span class="k">Facial symmetry</span><span class="v" id="n_facesym">-</span></div>
+      <div class="kv"><span class="k">Blink rate (/min)</span><span class="v" id="n_blink">-</span></div>
+      <div class="kv"><span class="k">Postural sway</span><span class="v" id="n_sway">-</span></div>
+      <div class="kv"><span class="k">Motor symmetry</span><span class="v" id="n_motorsym">-</span></div>
     </div>
   </div>
 
