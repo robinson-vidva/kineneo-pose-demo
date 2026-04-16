@@ -25,13 +25,13 @@ h1 {
 .stage {
   position: relative;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1500px;
   flex: 0 0 auto;
   display: flex;
   justify-content: center;
   align-items: center;
 }
-canvas {
+.stage > canvas {
   display: block;
   width: 100%;
   height: auto;
@@ -41,7 +41,7 @@ canvas {
   border-radius: 8px;
 }
 @media (min-width: 900px) {
-  canvas { max-height: 78vh; }
+  .stage > canvas { max-height: 82vh; }
 }
 .fps {
   position: absolute;
@@ -110,7 +110,7 @@ button.toggle.on {
 .status.error { color: #ff6b6b; }
 .panel {
   width: 100%;
-  max-width: 720px;
+  max-width: 1500px;
   margin-top: 12px;
   background: #0f0f0f;
   border: 1px solid #262626;
@@ -131,30 +131,32 @@ button.toggle.on {
 .panel .section-title:not(:first-child) { margin-top: 12px; }
 .kv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 4px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 4px 18px;
 }
 .kv {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   padding: 2px 0;
   border-bottom: 1px dotted #1f1f1f;
+  white-space: nowrap;
 }
-.kv .k { color: #9a9a9a; }
-.kv .v { color: #e8e8e8; }
+.kv .k { color: #9a9a9a; flex: 0 0 auto; }
+.kv .v { color: #e8e8e8; flex: 0 0 auto; min-width: 56px; text-align: right; margin-left: auto; }
 .kv .v.good { color: #00FF88; }
 .kv .v.warn { color: #ffb347; }
 .kv .v.bad { color: #ff6b6b; }
 .kv canvas.spark {
   display: inline-block;
-  width: 60px;
-  height: 16px;
+  width: 70px;
+  height: 14px;
+  flex: 0 0 auto;
   margin-left: auto;
-  margin-right: 6px;
   vertical-align: middle;
-  opacity: 0.85;
+  opacity: 0.9;
 }
+.kv canvas.spark + .v { margin-left: 6px; }
 .neuro-disclaimer {
   font-size: 10px;
   color: #ff6b6b;

@@ -3,8 +3,8 @@
 
   var buffers = {};      // metricId -> array of numeric values (last MAX)
   var canvases = {};     // metricId -> HTMLCanvasElement
-  var MAX = 60;          // ~ last 60 frames (about 1-2 seconds)
-  var W = 60, H = 16;    // canvas pixel size for each sparkline
+  var MAX = 70;          // ~ last 70 frames (about 1-2 seconds)
+  var W = 70, H = 14;    // canvas pixel size for each sparkline
 
   // Pull a numeric value out of a metric's text content. Returns NaN if not parseable.
   function parseNumber(text) {
