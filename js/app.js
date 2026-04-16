@@ -32,6 +32,7 @@
   };
 
   KN.neuro.bindDom();
+  if (KN.spark) KN.spark.bind();
 
   var currentStream = null;
   var facingMode = 'environment';
@@ -158,6 +159,7 @@
     KN.neuro.resetState();
     KN.neuro.clearPanel();
     if (KN.clearTrails) KN.clearTrails();
+    if (KN.spark) KN.spark.clearAll();
   }
 
   function switchModel(key) {

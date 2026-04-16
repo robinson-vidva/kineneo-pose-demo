@@ -146,6 +146,15 @@ button.toggle.on {
 .kv .v.good { color: #00FF88; }
 .kv .v.warn { color: #ffb347; }
 .kv .v.bad { color: #ff6b6b; }
+.kv canvas.spark {
+  display: inline-block;
+  width: 60px;
+  height: 16px;
+  margin-left: auto;
+  margin-right: 6px;
+  vertical-align: middle;
+  opacity: 0.85;
+}
 .neuro-disclaimer {
   font-size: 10px;
   color: #ff6b6b;

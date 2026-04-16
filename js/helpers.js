@@ -66,6 +66,7 @@
       el.textContent = text;
       el.classList.remove('good', 'warn', 'bad');
       if (cls) el.classList.add(cls);
+      if (KN.spark && el.id) KN.spark.push(el.id, text);
     },
     angleDeg: function (a, b, c) {
       var v1x = a.x - b.x, v1y = a.y - b.y;
