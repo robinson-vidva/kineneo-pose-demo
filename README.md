@@ -200,6 +200,26 @@ or neuro layers if anything goes wrong silently.
 - [TensorFlow.js Pose Detection - MoveNet](https://github.com/tensorflow/tfjs-models/tree/master/pose-detection)
 - Hosted via [GitHub Pages](https://pages.github.com/)
 
+### Citations
+
+- Bazarevsky, V., Grishchenko, I., Raveendran, K., Zhu, T., Zhang, F., &
+  Grundmann, M. (2020). [BlazePose: On-device Real-time Body Pose tracking](https://arxiv.org/abs/2006.10204).
+  arXiv:2006.10204.
+- Lugaresi, C., Tang, J., Nash, H., et al. (2019). [MediaPipe: A Framework for
+  Building Perception Pipelines](https://arxiv.org/abs/1906.08172). arXiv:1906.08172.
+- Votel, R., & Li, N. (2021). [Next-Generation Pose Detection with MoveNet
+  and TensorFlow.js](https://blog.tensorflow.org/2021/05/next-generation-pose-detection-with-movenet-and-tensorflowjs.html).
+  Google TensorFlow Blog.
+
+## Trademarks
+
+MediaPipe, TensorFlow, MoveNet, and Google are trademarks of Google LLC.
+This project is not affiliated with, endorsed by, or sponsored by Google.
+
 ## License
 
-MIT. See source for details.
+This project's own source code is released under the [MIT License](LICENSE).
+
+Third-party libraries loaded at runtime via CDN are licensed by their
+respective owners. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for
+the full list and license information.
