@@ -6,18 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#1a1a1a" />
 <title>KineNeo - Pose Demo</title>
-<link rel="stylesheet" href="styles.css?v=11" />
+<link rel="stylesheet" href="styles.css?v=12" />
 </head>
 <body>
 <div class="app">
   <h1>KineNeo - Pose Demo</h1>
-
-  <div class="model-selector" id="modelSelector">
-    <button id="mdl_pose" class="toggle" type="button">Pose</button>
-    <button id="mdl_holistic" class="toggle on" type="button">Holistic</button>
-    <button id="mdl_movenet" class="toggle" type="button">MoveNet Multi</button>
-  </div>
-  <div class="model-subtitle" id="modelSubtitle">1 person -- 33 body + 21+21 hand + 468 face landmarks</div>
 
   <div class="stage" id="stage">
     <div class="placeholder" id="placeholder">Tap "Start Camera" to begin</div>
@@ -66,7 +59,6 @@
     </div>
     <div class="section-title">Neuro Screen (POC)</div>
     <div class="neuro-disclaimer">Research proof-of-concept. Not a medical device. Not for diagnosis.</div>
-    <div class="neuro-hint hidden" id="neuroHint">Switch to Holistic model for face and body signals.</div>
     <div class="kv-grid" id="neuroGrid">
       <div class="kv"><span class="k">Facial symmetry</span><span class="v" id="n_facesym">-</span></div>
       <div class="kv"><span class="k">Blink rate (/min)</span><span class="v" id="n_blink">-</span></div>
@@ -81,24 +73,18 @@
     </div>
   </div>
 
-  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v11</span></footer>
+  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v12</span></footer>
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.15.0/dist/tf-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.15.0/dist/tf-converter.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.15.0/dist/tf-backend-webgl.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
-<script src="js/helpers.js?v=11"></script>
-<script src="js/spark.js?v=11"></script>
-<script src="js/neuro.js?v=11"></script>
-<script src="js/models.js?v=11"></script>
-<script src="js/app.js?v=11"></script>
+<script src="js/helpers.js?v=12"></script>
+<script src="js/spark.js?v=12"></script>
+<script src="js/neuro.js?v=12"></script>
+<script src="js/models.js?v=12"></script>
+<script src="js/app.js?v=12"></script>
 </body>
 </html>

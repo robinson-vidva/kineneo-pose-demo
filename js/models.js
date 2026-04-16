@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
-// models.js - the three model objects (Pose, Holistic, MoveNet) and their canvas overlays.
+// models.js - MediaPipe Holistic model + canvas overlays.
 (function () {
   var KN = window.KN = window.KN || {};
   var H = KN.helpers;
   var C = KN.constants;
 
-  // Trails: buffer of recent points per landmark name, drawn as fading lines.
   var trailHistory = { lWrist: [], rWrist: [], lAnkle: [], rAnkle: [], nose: [] };
   var TRAIL_LEN = 16;
   function pushTrail(key, x, y) {
@@ -37,7 +36,6 @@
     });
   }
 
-  // Glowing dot for center-of-mass marker.
   function drawGlowDot(cx, x, y, r, color) {
     cx.save();
     cx.shadowBlur = 20;
@@ -50,7 +48,6 @@
     cx.restore();
   }
 
-  // L-R symmetry connecting lines (faint), colored by asymmetry of pair distances from midline.
   function drawSymmetryOverlay(cx, lms, w, h) {
     var pairs = [[11, 12], [13, 14], [15, 16], [23, 24], [25, 26], [27, 28]];
     for (var i = 0; i < pairs.length; i++) {
@@ -71,7 +68,6 @@
     }
   }
 
-  // Center of mass: midpoint of shoulder-center and hip-center (approx).
   function drawCenterOfMass(cx, lms, w, h, color) {
     var lSh = lms[11], rSh = lms[12], lHip = lms[23], rHip = lms[24];
     if (!lSh || !rSh) return;
@@ -123,74 +119,7 @@
     }
   }
 
-  var models = {};
-
-  models.pose = (function () {
-    var inst = null;
-    var resolveFrame = null;
-    return {
-      name: 'MediaPipe Pose',
-      init: function () {
-        if (inst) return Promise.resolve();
-        if (!window.Pose) return Promise.reject(new Error('MediaPipe Pose failed to load.'));
-        inst = new window.Pose({
-          locateFile: function (f) { return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f; }
-        });
-        inst.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-        inst.onResults(function (results) {
-          if (resolveFrame) { var r = resolveFrame; resolveFrame = null; r(results); }
-        });
-        return inst.initialize();
-      },
-      run: function (vid, cvs, cx) {
-        if (!inst || vid.readyState < 2) return Promise.resolve(null);
-        var w = vid.videoWidth, h = vid.videoHeight;
-        H.ensureCanvasSize(cvs, w, h);
-        return new Promise(function (resolve) {
-          resolveFrame = function (results) {
-            cx.save();
-            cx.clearRect(0, 0, w, h);
-            if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
-            else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
-            var lms = results.poseLandmarks;
-            if (lms && lms.length) {
-              drawSymmetryOverlay(cx, lms, w, h);
-              if (lms[15]) pushTrail('lWrist', lms[15].x * w, lms[15].y * h);
-              if (lms[16]) pushTrail('rWrist', lms[16].x * w, lms[16].y * h);
-              if (lms[27]) pushTrail('lAnkle', lms[27].x * w, lms[27].y * h);
-              if (lms[28]) pushTrail('rAnkle', lms[28].x * w, lms[28].y * h);
-              if (lms[0]) pushTrail('nose', lms[0].x * w, lms[0].y * h);
-              drawTrails(cx, '#00FF88');
-              cx.save(); cx.shadowBlur = 8; cx.shadowColor = '#00FF88';
-              if (window.drawConnectors && window.POSE_CONNECTIONS)
-                window.drawConnectors(cx, lms, window.POSE_CONNECTIONS, { color: '#00FF88', lineWidth: 2 });
-              if (window.drawLandmarks)
-                window.drawLandmarks(cx, lms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 4 });
-              cx.restore();
-              drawCenterOfMass(cx, lms, w, h, '#ff6b6b');
-              var ja = computeAnglesMp(lms, cx, w, h);
-              drawLabelsMp(lms, cx, w, h);
-              var visC = 0, confS = 0;
-              for (var i = 0; i < lms.length; i++) {
-                var v = lms[i].visibility != null ? lms[i].visibility : 0;
-                confS += v; if (v >= 0.5) visC++;
-              }
-              if (KN.neuro) KN.neuro.updateBehavior(lms, KN.neuro.MP_MAP);
-              cx.restore();
-              resolve({ tracking: true, numPersons: 1, landmarkCount: visC, totalLandmarks: 33, meanConfidence: confS / lms.length, jointAngles: ja });
-            } else {
-              cx.restore();
-              resolve({ tracking: false });
-            }
-          };
-          inst.send({ image: vid });
-        });
-      },
-      destroy: function () { resolveFrame = null; if (inst) { inst.close(); inst = null; } }
-    };
-  })();
-
-  models.holistic = (function () {
+  var holistic = (function () {
     var inst = null;
     var resolveFrame = null;
     return {
@@ -274,91 +203,5 @@
     };
   })();
 
-  models.movenet = (function () {
-    var detector = null;
-    return {
-      name: 'MoveNet MultiPose',
-      init: function () {
-        if (detector) return Promise.resolve();
-        if (!window.poseDetection) return Promise.reject(new Error('TensorFlow.js pose-detection failed to load.'));
-        return tf.setBackend('webgl').then(function () { return tf.ready(); }).then(function () {
-          return poseDetection.createDetector(
-            poseDetection.SupportedModels.MoveNet,
-            { modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING, enableTracking: true, trackerType: poseDetection.TrackerType.BoundingBox }
-          );
-        }).then(function (d) { detector = d; });
-      },
-      run: function (vid, cvs, cx) {
-        if (!detector || vid.readyState < 2) return Promise.resolve(null);
-        var w = vid.videoWidth, h = vid.videoHeight;
-        H.ensureCanvasSize(cvs, w, h);
-        return detector.estimatePoses(vid, { maxPoses: 6, flipHorizontal: false }).then(function (poses) {
-          cx.save();
-          cx.clearRect(0, 0, w, h);
-          if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
-          else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
-          var personColors = ['#FFB347', '#FF6B6B', '#7FD8FF', '#00FF88', '#C084FC', '#F472B6'];
-          if (!poses || !poses.length) { cx.restore(); return { tracking: false }; }
-          for (var p = 0; p < poses.length; p++) {
-            var kps = poses[p].keypoints;
-            var col = personColors[p % personColors.length];
-            for (var ci = 0; ci < C.MOVENET_CONNECTIONS.length; ci++) {
-              var a = kps[C.MOVENET_CONNECTIONS[ci][0]], b = kps[C.MOVENET_CONNECTIONS[ci][1]];
-              if (a.score >= 0.3 && b.score >= 0.3) {
-                cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
-                cx.strokeStyle = col; cx.lineWidth = 2; cx.stroke();
-              }
-            }
-            for (var ki = 0; ki < kps.length; ki++) {
-              if (kps[ki].score >= 0.3) {
-                cx.beginPath(); cx.arc(kps[ki].x, kps[ki].y, 4, 0, 2 * Math.PI);
-                cx.fillStyle = '#FFF'; cx.fill();
-              }
-            }
-            var minX = Infinity, minY = Infinity;
-            for (var ki2 = 0; ki2 < kps.length; ki2++) {
-              if (kps[ki2].score >= 0.3) { if (kps[ki2].x < minX) minX = kps[ki2].x; if (kps[ki2].y < minY) minY = kps[ki2].y; }
-            }
-            if (minX < Infinity) H.drawTextBadge(cx, minX, Math.max(0, minY - 20), 'P' + (p + 1) + ' ' + (poses[p].score != null ? poses[p].score.toFixed(2) : ''), col);
-          }
-          var best = poses[0];
-          for (var bi = 1; bi < poses.length; bi++) { if ((poses[bi].score || 0) > (best.score || 0)) best = poses[bi]; }
-          var bkps = best.keypoints;
-          var ja = {};
-          for (var ai = 0; ai < C.MOVENET_ANGLE_DEFS.length; ai++) {
-            var dd = C.MOVENET_ANGLE_DEFS[ai];
-            var A = bkps[dd.a], B = bkps[dd.b], CC = bkps[dd.c];
-            if (!A || !B || !CC || A.score < 0.5 || B.score < 0.5 || CC.score < 0.5) { ja[dd.key] = null; continue; }
-            var deg = H.angleDeg(A, B, CC);
-            ja[dd.key] = deg;
-            if (KN.state.showAngles && deg != null) {
-              H.drawAngleArcPx(cx, B.x, B.y, A.x, A.y, CC.x, CC.y, w, h);
-              H.drawTextBadge(cx, B.x + 8, B.y - 8, dd.label + ' ' + deg.toFixed(0), '#ffb347');
-            }
-          }
-          if (KN.state.showLabels) {
-            for (var li = 0; li < C.MOVENET_LABEL_INDICES.length; li++) {
-              var idx = C.MOVENET_LABEL_INDICES[li];
-              var kp = bkps[idx];
-              if (kp && kp.score >= 0.5) H.drawTextBadge(cx, kp.x + 6, kp.y + 6, C.MOVENET_KP_NAMES[idx], '#ffffff');
-            }
-          }
-          var visC = 0, confS = 0;
-          for (var si = 0; si < bkps.length; si++) {
-            var sc = bkps[si].score || 0;
-            confS += sc; if (sc >= 0.5) visC++;
-          }
-          if (KN.neuro) {
-            var nkps = bkps.map(function(k) { return { x: k.x / w, y: k.y / h, score: k.score }; });
-            KN.neuro.updateBehavior(nkps, KN.neuro.MV_MAP);
-          }
-          cx.restore();
-          return { tracking: true, numPersons: poses.length, landmarkCount: visC, totalLandmarks: 17, meanConfidence: confS / bkps.length, jointAngles: ja };
-        });
-      },
-      destroy: function () { if (detector) { detector.dispose(); detector = null; } }
-    };
-  })();
-
-  KN.models = models;
+  KN.model = holistic;
 })();

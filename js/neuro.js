@@ -17,8 +17,7 @@
     fftBuf: []
   };
 
-  // Named landmark map for pose-like models.
-  // MediaPipe Pose (33) uses one index set; MoveNet (17) uses another.
+  // Named landmark map for MediaPipe Holistic/Pose body landmarks (33 indices).
   var MP_MAP = {
     nose: 0, lEar: 7, rEar: 8,
     lShoulder: 11, rShoulder: 12,
@@ -27,15 +26,6 @@
     lHip: 23, rHip: 24,
     lKnee: 25, rKnee: 26,
     lAnkle: 27, rAnkle: 28
-  };
-  var MV_MAP = {
-    nose: 0, lEar: 3, rEar: 4,
-    lShoulder: 5, rShoulder: 6,
-    lElbow: 7, rElbow: 8,
-    lWrist: 9, rWrist: 10,
-    lHip: 11, rHip: 12,
-    lKnee: 13, rKnee: 14,
-    lAnkle: 15, rAnkle: 16
   };
 
   function conf(lm) {
@@ -60,7 +50,6 @@
     dom.b_arms = document.getElementById('b_arms');
     dom.b_stillness = document.getElementById('b_stillness');
     dom.b_headtilt = document.getElementById('b_headtilt');
-    dom.neuroHint = document.getElementById('neuroHint');
   }
 
   function clearPanel() {
@@ -90,10 +79,6 @@
     state.noseHistory = [];
     state.faceLmHistory = [];
     state.fftBuf = [];
-  }
-
-  function setHintVisible(visible) {
-    dom.neuroHint.classList.toggle('hidden', !visible);
   }
 
   function computeFaceSymmetry(face) {
@@ -558,11 +543,9 @@
     bindDom: bindDom,
     clearPanel: clearPanel,
     resetState: resetState,
-    setHintVisible: setHintVisible,
     update: update,
     updateBehavior: updateBehavior,
     updateFace: updateFace,
-    MP_MAP: MP_MAP,
-    MV_MAP: MV_MAP
+    MP_MAP: MP_MAP
   };
 })();

@@ -169,38 +169,12 @@ button.toggle.on {
   margin-bottom: 6px;
   text-align: center;
 }
-.neuro-hint {
-  font-size: 11px;
-  color: #ffb347;
-  margin-bottom: 6px;
-  text-align: center;
-}
-.neuro-hint.hidden { display: none; }
 footer {
   margin-top: auto;
   padding-top: 16px;
   font-size: 11px;
   color: #888;
   text-align: center;
-}
-.model-selector {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-}
-.model-selector button {
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 6px;
-}
-.model-subtitle {
-  font-size: 11px;
-  color: #888;
-  text-align: center;
-  margin-bottom: 10px;
-  min-height: 16px;
 }
 .placeholder {
   width: 100%;

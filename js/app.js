@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-// app.js - DOM bindings, rAF loop, camera lifecycle, model switching, and event listeners.
+// app.js - DOM bindings, rAF loop, camera lifecycle, and event listeners (Holistic only).
 (function () {
   var KN = window.KN = window.KN || {};
   var H = KN.helpers;
   var C = KN.constants;
-  var MODEL_INFO = C.MODEL_INFO;
 
   var video = document.getElementById('video');
   var canvas = document.getElementById('canvas');
@@ -20,19 +19,11 @@
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
   var panel = document.getElementById('panel');
-  var modelSubtitle = document.getElementById('modelSubtitle');
 
   var m_status = document.getElementById('m_status');
   var m_persons = document.getElementById('m_persons');
   var m_visible = document.getElementById('m_visible');
   var m_conf = document.getElementById('m_conf');
-  var m_model = document.getElementById('m_model');
-
-  var mdlBtns = {
-    pose: document.getElementById('mdl_pose'),
-    holistic: document.getElementById('mdl_holistic'),
-    movenet: document.getElementById('mdl_movenet')
-  };
 
   KN.neuro.bindDom();
   if (KN.spark) KN.spark.bind();
@@ -40,8 +31,7 @@
   var currentStream = null;
   var facingMode = 'environment';
   var running = false;
-  var activeModel = null;
-  var switching = false;
+  var modelReady = false;
   var rafId = null;
   var frameCount = 0;
   var lastFpsUpdate = performance.now();
@@ -54,7 +44,7 @@
   function clearPanel() {
     H.setMetric(m_status, 'NO POSE', 'bad');
     H.setMetric(m_persons, '-');
-    H.setMetric(m_visible, '- / ' + MODEL_INFO[KN.state.activeModelKey].total);
+    H.setMetric(m_visible, '- / ' + C.HOLISTIC_TOTAL);
     H.setMetric(m_conf, '-');
     C.ANGLE_DEFS.forEach(function (d) { H.setMetric(document.getElementById(d.key), '-'); });
     badge.textContent = 'NO POSE';
@@ -70,7 +60,7 @@
     badge.classList.add('tracking');
     badge.classList.remove('lost');
     H.setMetric(m_persons, String(stats.numPersons));
-    var total = stats.totalLandmarks || MODEL_INFO[KN.state.activeModelKey].total;
+    var total = stats.totalLandmarks || C.HOLISTIC_TOTAL;
     var vis = stats.landmarkCount;
     var visCls = vis >= 20 ? 'good' : (vis >= 10 ? 'warn' : 'bad');
     H.setMetric(m_visible, vis + ' / ' + total, visCls);
@@ -135,8 +125,8 @@
   function rafLoop() {
     if (!running) return;
     rafId = requestAnimationFrame(function () {
-      if (!running || !activeModel) return;
-      activeModel.run(video, canvas, ctx).then(function (stats) {
+      if (!running) return;
+      KN.model.run(video, canvas, ctx).then(function (stats) {
         if (!running) return;
         try { updateMetrics(stats); } catch (e) { console.error('[kineneo] updateMetrics error:', e); }
         tickFps();
@@ -145,48 +135,6 @@
         console.error('[kineneo] model.run error:', err);
         if (running) rafLoop();
       });
-    });
-  }
-
-  function setModelBtns(disabled) {
-    Object.keys(mdlBtns).forEach(function (k) { mdlBtns[k].disabled = disabled; });
-  }
-
-  function highlightModelBtn(key) {
-    Object.keys(mdlBtns).forEach(function (k) {
-      mdlBtns[k].classList.toggle('on', k === key);
-    });
-    modelSubtitle.textContent = MODEL_INFO[key].desc;
-    m_model.textContent = MODEL_INFO[key].name;
-    KN.neuro.setHintVisible(key !== 'holistic');
-    KN.neuro.resetState();
-    KN.neuro.clearPanel();
-    if (KN.clearTrails) KN.clearTrails();
-    if (KN.spark) KN.spark.clearAll();
-  }
-
-  function switchModel(key) {
-    if (key === KN.state.activeModelKey && activeModel) return Promise.resolve();
-    if (switching) return Promise.resolve();
-    switching = true;
-    setModelBtns(true);
-    var wasRunning = running;
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    if (activeModel) { activeModel.destroy(); activeModel = null; }
-    KN.state.activeModelKey = key;
-    highlightModelBtn(key);
-    setStatus('Loading ' + MODEL_INFO[key].name + '...');
-    return KN.models[key].init().then(function () {
-      activeModel = KN.models[key];
-      switching = false;
-      setModelBtns(false);
-      clearPanel();
-      setStatus('');
-      if (wasRunning) rafLoop();
-    }).catch(function (err) {
-      switching = false;
-      setModelBtns(false);
-      setStatus('Failed to load ' + MODEL_INFO[key].name + ': ' + (err && err.message ? err.message : 'unknown'), true);
     });
   }
 
@@ -216,7 +164,11 @@
     setStatus('Requesting camera access...');
     try {
       await startStream();
-      await switchModel(KN.state.activeModelKey);
+      if (!modelReady) {
+        setStatus('Loading MediaPipe Holistic...');
+        await KN.model.init();
+        modelReady = true;
+      }
       H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
       placeholder.style.display = 'none';
       canvas.style.display = 'block';
@@ -242,7 +194,6 @@
   async function stop() {
     running = false;
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    if (activeModel) { activeModel.destroy(); activeModel = null; }
     await stopCurrentStream();
     canvas.style.display = 'none';
     fpsEl.style.display = 'none';
@@ -319,32 +270,5 @@
   document.addEventListener('fullscreenchange', syncFsBtn);
   document.addEventListener('webkitfullscreenchange', syncFsBtn);
 
-  Object.keys(mdlBtns).forEach(function (key) {
-    mdlBtns[key].addEventListener('click', function () {
-      if (switching || key === KN.state.activeModelKey) return;
-      if (running) {
-        running = false;
-        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-        if (activeModel) { activeModel.destroy(); activeModel = null; }
-        stopCurrentStream().then(function () {
-          return switchModel(key);
-        }).then(function () {
-          return startStream();
-        }).then(function () {
-          H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
-          running = true;
-          frameCount = 0; lastFpsUpdate = performance.now();
-          rafLoop();
-        }).catch(function (err) {
-          setStatus('Could not restart camera: ' + (err && err.message ? err.message : 'unknown'), true);
-        });
-      } else {
-        KN.state.activeModelKey = key;
-        highlightModelBtn(key);
-      }
-    });
-  });
-
-  highlightModelBtn('holistic');
   window.addEventListener('pagehide', function () { stop(); });
 })();

@@ -10,26 +10,12 @@ The full text of the Apache License, Version 2.0 is available at
 
 ---
 
-## @mediapipe/pose
-
-- **Copyright** (c) Google LLC
-- **License:** Apache License, Version 2.0
-- **Source:** <https://github.com/google/mediapipe>
-- **Package:** <https://www.npmjs.com/package/@mediapipe/pose>
-
 ## @mediapipe/holistic
 
 - **Copyright** (c) Google LLC
 - **License:** Apache License, Version 2.0
 - **Source:** <https://github.com/google/mediapipe>
 - **Package:** <https://www.npmjs.com/package/@mediapipe/holistic>
-
-## @mediapipe/camera_utils
-
-- **Copyright** (c) Google LLC
-- **License:** Apache License, Version 2.0
-- **Source:** <https://github.com/google/mediapipe>
-- **Package:** <https://www.npmjs.com/package/@mediapipe/camera_utils>
 
 ## @mediapipe/drawing_utils
 
@@ -38,29 +24,12 @@ The full text of the Apache License, Version 2.0 is available at
 - **Source:** <https://github.com/google/mediapipe>
 - **Package:** <https://www.npmjs.com/package/@mediapipe/drawing_utils>
 
-## @tensorflow/tfjs-core, tfjs-converter, tfjs-backend-webgl
-
-- **Copyright** (c) Google LLC
-- **License:** Apache License, Version 2.0
-- **Source:** <https://github.com/tensorflow/tfjs>
-- **Packages:**
-  - <https://www.npmjs.com/package/@tensorflow/tfjs-core>
-  - <https://www.npmjs.com/package/@tensorflow/tfjs-converter>
-  - <https://www.npmjs.com/package/@tensorflow/tfjs-backend-webgl>
-
-## @tensorflow-models/pose-detection (MoveNet)
-
-- **Copyright** (c) Google LLC
-- **License:** Apache License, Version 2.0
-- **Source:** <https://github.com/tensorflow/tfjs-models/tree/master/pose-detection>
-- **Package:** <https://www.npmjs.com/package/@tensorflow-models/pose-detection>
-
 ---
 
 ## Trademarks
 
-MediaPipe, TensorFlow, MoveNet, and Google are trademarks of Google LLC.
-This project is not affiliated with, endorsed by, or sponsored by Google.
+MediaPipe and Google are trademarks of Google LLC. This project is not
+affiliated with, endorsed by, or sponsored by Google.
 
 ## Citations
 
@@ -71,6 +40,3 @@ This project is not affiliated with, endorsed by, or sponsored by Google.
 - Lugaresi, C., Tang, J., Nash, H., et al. (2019). *MediaPipe: A Framework for
   Building Perception Pipelines.* arXiv preprint arXiv:1906.08172.
   <https://arxiv.org/abs/1906.08172>
-- Votel, R., & Li, N. (2021). *Next-Generation Pose Detection with MoveNet
-  and TensorFlow.js.* Google TensorFlow Blog.
-  <https://blog.tensorflow.org/2021/05/next-generation-pose-detection-with-movenet-and-tensorflowjs.html>

@@ -6,8 +6,7 @@
   KN.state = {
     showLabels: true,
     showAngles: true,
-    skeletonOnly: false,
-    activeModelKey: 'holistic'
+    skeletonOnly: false
   };
 
   KN.constants = {
@@ -30,31 +29,7 @@
       { key: 'a_lknee',     label: 'L.knee', a: 23, b: 25, c: 27 },
       { key: 'a_rknee',     label: 'R.knee', a: 24, b: 26, c: 28 }
     ],
-    MOVENET_CONNECTIONS: [
-      [5,7],[7,9],[6,8],[8,10],[5,6],[5,11],[6,12],[11,12],
-      [11,13],[13,15],[12,14],[14,16],[0,1],[0,2],[1,3],[2,4]
-    ],
-    MOVENET_ANGLE_DEFS: [
-      { key: 'a_lshoulder', label: 'L.shl', a: 7,  b: 5,  c: 11 },
-      { key: 'a_rshoulder', label: 'R.shl', a: 8,  b: 6,  c: 12 },
-      { key: 'a_lelbow',    label: 'L.elb', a: 5,  b: 7,  c: 9 },
-      { key: 'a_relbow',    label: 'R.elb', a: 6,  b: 8,  c: 10 },
-      { key: 'a_lhip',      label: 'L.hip', a: 5,  b: 11, c: 13 },
-      { key: 'a_rhip',      label: 'R.hip', a: 6,  b: 12, c: 14 },
-      { key: 'a_lknee',     label: 'L.knee', a: 11, b: 13, c: 15 },
-      { key: 'a_rknee',     label: 'R.knee', a: 12, b: 14, c: 16 }
-    ],
-    MOVENET_KP_NAMES: [
-      'nose','L.eye','R.eye','L.ear','R.ear',
-      'L.shoulder','R.shoulder','L.elbow','R.elbow','L.wrist','R.wrist',
-      'L.hip','R.hip','L.knee','R.knee','L.ankle','R.ankle'
-    ],
-    MOVENET_LABEL_INDICES: [0,5,6,7,8,9,10,11,12,13,14,15,16],
-    MODEL_INFO: {
-      pose:     { name: 'MediaPipe Pose',      desc: '1 person -- 33 body landmarks',                          total: 33 },
-      holistic: { name: 'MediaPipe Holistic',  desc: '1 person -- 33 body + 21+21 hand + 468 face landmarks',  total: 543 },
-      movenet:  { name: 'MoveNet MultiPose',   desc: 'Up to 6 people -- 17 keypoints each',                    total: 17 }
-    }
+    HOLISTIC_TOTAL: 543
   };
 
   KN.helpers = {

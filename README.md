@@ -21,17 +21,12 @@ clinician.
 
 ## What it does
 
-A single HTML page that opens the camera and runs one of three skeleton / landmark
-models in real time, with on-canvas overlays and a live metrics panel.
+A single HTML page that opens the camera and runs **MediaPipe Holistic** in real
+time, with on-canvas overlays and a live metrics panel.
 
-### Models
+### Model
 
-- **MediaPipe Pose** - 1 person, 33 body landmarks
-- **MediaPipe Holistic** (default) - 1 person, 33 body + 21 + 21 hand + 468 face
-- **MoveNet MultiPose** - up to 6 people, 17 COCO keypoints each
-
-You can switch models at any time. Each switch tears down the previous model, stops
-the camera stream, initializes the new model, and restarts the stream.
+- **MediaPipe Holistic** - 1 person, 33 body + 21 + 21 hand + 468 face landmarks
 
 ### Canvas overlays
 
@@ -41,7 +36,6 @@ the camera stream, initializes the new model, and restarts the stream.
   symmetry check)
 - Glowing red center-of-mass marker (midpoint of shoulder + hip centers)
 - Fading motion trails for nose, both wrists, both ankles (last 16 frames)
-- Per-person bounding-box label for MoveNet multi-person tracking
 - Optional landmark name labels and joint-angle text badges
 - **Skeleton Only** mode that hides the video and renders the skeleton on a near
   black canvas (great for screenshots / projection)
@@ -52,12 +46,12 @@ Each numeric metric has a tiny inline **sparkline** showing the last ~70 frames 
 its value, color-matched to its current good / amber / red status.
 
 **Detection** - status, person count, visible-vs-total landmark count, mean
-confidence, active model.
+confidence, model name.
 
 **Joint angles (deg)** - left and right shoulder, elbow, hip, knee. Computed only
 when the relevant landmarks have visibility >= 0.5.
 
-**Behavior** (works with any model)
+**Behavior**
 - Posture: standing / sitting / squatting / bending / lying when lower body is
   visible, otherwise upright / tilted from upper-body shoulders alone
 - Arms: down / one raised / both raised (wrist y vs shoulder y)
@@ -65,7 +59,7 @@ when the relevant landmarks have visibility >= 0.5.
 - Head tilt: degrees, computed from ear-to-ear vector after sorting by image x
   so 0 deg = level
 
-**Neuro Screen POC** (Holistic only - needs face landmarks)
+**Neuro Screen POC**
 - Facial symmetry: mean min/max distance ratio across 3 L-R landmark pairs vs
   nose tip
 - Blink rate (per minute): eye-aspect-ratio threshold detector, 30s rolling window
@@ -106,7 +100,7 @@ styles.css       All styles (dark theme, panel, sparklines, controls)
 js/helpers.js    Shared state, drawing utilities, landmark/model constants
 js/spark.js     Auto-injected inline sparkline canvases
 js/neuro.js      Behavior + Neuro Screen metric calculations
-js/models.js     The three model objects (Pose, Holistic, MoveNet)
+js/models.js     MediaPipe Holistic model + canvas overlays
 js/app.js        DOM bindings, rAF loop, camera lifecycle, event listeners
 ```
 
@@ -117,31 +111,26 @@ then spark, then neuro, then models, then app.
 ### Runtime architecture
 
 ```
-                     camera getUserMedia
-                            |
-                  hidden <video> element
-                            |
-              requestAnimationFrame loop (app.js)
-                            |
-              activeModel.run(video, canvas, ctx)
-                /            |             \
-            pose          holistic         movenet
-         (MediaPipe)    (MediaPipe)     (TensorFlow.js)
-                \            |             /
-                 +-----------+------------+
-                             |
-              { tracking, jointAngles, ... }
-                             |
-        updateMetrics + neuro.updateBehavior + neuro.updateFace
-                             |
-        DOM panel + sparkline buffers + canvas overlays
+           camera getUserMedia
+                   |
+         hidden <video> element
+                   |
+    requestAnimationFrame loop (app.js)
+                   |
+     KN.model.run(video, canvas, ctx)
+                   |
+            MediaPipe Holistic
+                   |
+    { tracking, jointAngles, ... }
+                   |
+ updateMetrics + neuro.updateBehavior + neuro.updateFace
+                   |
+ DOM panel + sparkline buffers + canvas overlays
 ```
 
-Each model object exposes the same shape: `init()`, `run(video, canvas, ctx)`,
-`destroy()`. The two MediaPipe models wrap their push-based `onResults` callback
-in a Promise so `run()` can be awaited like MoveNet's pull-based API. MoveNet
-keypoints are normalized from pixel coords into [0, 1] before being passed to
-the behavior layer so the same code works across all three models.
+The model object exposes `init()`, `run(video, canvas, ctx)`, and `destroy()`.
+The MediaPipe Holistic push-based `onResults` callback is wrapped in a Promise
+so `run()` can be awaited by the rAF loop.
 
 `helpers.setMetric` is the only place that writes a metric value to the DOM. It
 also pushes the value (parsed from text) into the matching sparkline buffer, so
@@ -196,8 +185,7 @@ or neuro layers if anything goes wrong silently.
 
 ## Credits
 
-- [MediaPipe Pose and Holistic](https://developers.google.com/mediapipe)
-- [TensorFlow.js Pose Detection - MoveNet](https://github.com/tensorflow/tfjs-models/tree/master/pose-detection)
+- [MediaPipe Holistic](https://developers.google.com/mediapipe)
 - Hosted via [GitHub Pages](https://pages.github.com/)
 
 ### Citations
@@ -207,14 +195,11 @@ or neuro layers if anything goes wrong silently.
   arXiv:2006.10204.
 - Lugaresi, C., Tang, J., Nash, H., et al. (2019). [MediaPipe: A Framework for
   Building Perception Pipelines](https://arxiv.org/abs/1906.08172). arXiv:1906.08172.
-- Votel, R., & Li, N. (2021). [Next-Generation Pose Detection with MoveNet
-  and TensorFlow.js](https://blog.tensorflow.org/2021/05/next-generation-pose-detection-with-movenet-and-tensorflowjs.html).
-  Google TensorFlow Blog.
 
 ## Trademarks
 
-MediaPipe, TensorFlow, MoveNet, and Google are trademarks of Google LLC.
-This project is not affiliated with, endorsed by, or sponsored by Google.
+MediaPipe and Google are trademarks of Google LLC. This project is not
+affiliated with, endorsed by, or sponsored by Google.
 
 ## License
 
