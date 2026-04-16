@@ -4,7 +4,7 @@
   KN.state = {
     showLabels: true,
     showAngles: true,
-    activeModelKey: 'pose'
+    activeModelKey: 'holistic'
   };
 
   KN.constants = {

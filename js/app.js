@@ -306,6 +306,6 @@
     });
   });
 
-  highlightModelBtn('pose');
+  highlightModelBtn('holistic');
   window.addEventListener('pagehide', function () { stop(); });
 })();

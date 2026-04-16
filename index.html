@@ -12,11 +12,11 @@
   <h1>KineNeo - Pose Demo</h1>
 
   <div class="model-selector" id="modelSelector">
-    <button id="mdl_pose" class="toggle on" type="button">Pose</button>
-    <button id="mdl_holistic" class="toggle" type="button">Holistic</button>
+    <button id="mdl_pose" class="toggle" type="button">Pose</button>
+    <button id="mdl_holistic" class="toggle on" type="button">Holistic</button>
     <button id="mdl_movenet" class="toggle" type="button">MoveNet Multi</button>
   </div>
-  <div class="model-subtitle" id="modelSubtitle">1 person -- 33 body landmarks</div>
+  <div class="model-subtitle" id="modelSubtitle">1 person -- 33 body + 21+21 hand + 468 face landmarks</div>
 
   <div class="stage" id="stage">
     <div class="placeholder" id="placeholder">Tap "Start Camera" to begin</div>
@@ -41,7 +41,7 @@
       <div class="kv"><span class="k">Persons</span><span class="v" id="m_persons">-</span></div>
       <div class="kv"><span class="k">Landmarks visible</span><span class="v" id="m_visible">-</span></div>
       <div class="kv"><span class="k">Mean confidence</span><span class="v" id="m_conf">-</span></div>
-      <div class="kv"><span class="k">Model</span><span class="v" id="m_model">MediaPipe Pose</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v" id="m_model">MediaPipe Holistic</span></div>
     </div>
     <div class="section-title">Joint Angles (deg)</div>
     <div class="kv-grid">
@@ -63,7 +63,7 @@
     </div>
     <div class="section-title">Neuro Screen (POC)</div>
     <div class="neuro-disclaimer">Research proof-of-concept. Not a medical device. Not for diagnosis.</div>
-    <div class="neuro-hint" id="neuroHint">Switch to Holistic model for face and body signals.</div>
+    <div class="neuro-hint hidden" id="neuroHint">Switch to Holistic model for face and body signals.</div>
     <div class="kv-grid" id="neuroGrid">
       <div class="kv"><span class="k">Facial symmetry</span><span class="v" id="n_facesym">-</span></div>
       <div class="kv"><span class="k">Blink rate (/min)</span><span class="v" id="n_blink">-</span></div>
