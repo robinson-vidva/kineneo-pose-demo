@@ -149,9 +149,9 @@
               var totalVis = visC + (lhLms ? lhLms.length : 0) + (rhLms ? rhLms.length : 0) + (faceLms ? faceLms.length : 0);
               var totalPossible = 33 + (lhLms ? 21 : 0) + (rhLms ? 21 : 0) + (faceLms ? 468 : 0);
               if (KN.neuro) {
-                KN.neuro.update(faceLms, poseLms, ja);
-                KN.neuro.updateBehavior(poseLms, KN.neuro.MP_MAP);
-                if (faceLms && faceLms.length) KN.neuro.updateFace(faceLms);
+                try { KN.neuro.update(faceLms, poseLms, ja); } catch (e) { console.error('[kineneo] neuro.update:', e); }
+                try { KN.neuro.updateBehavior(poseLms, KN.neuro.MP_MAP); } catch (e) { console.error('[kineneo] neuro.updateBehavior:', e); }
+                try { if (faceLms && faceLms.length) KN.neuro.updateFace(faceLms); } catch (e) { console.error('[kineneo] neuro.updateFace:', e); }
               }
               cx.restore();
               resolve({ tracking: true, numPersons: 1, landmarkCount: totalVis, totalLandmarks: totalPossible, meanConfidence: confS / poseLms.length, jointAngles: ja });

@@ -133,10 +133,13 @@
       if (!running || !activeModel) return;
       activeModel.run(video, canvas, ctx).then(function (stats) {
         if (!running) return;
-        updateMetrics(stats);
+        try { updateMetrics(stats); } catch (e) { console.error('[kineneo] updateMetrics error:', e); }
         tickFps();
         rafLoop();
-      }).catch(function () { if (running) rafLoop(); });
+      }).catch(function (err) {
+        console.error('[kineneo] model.run error:', err);
+        if (running) rafLoop();
+      });
     });
   }
 
