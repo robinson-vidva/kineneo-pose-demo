@@ -65,7 +65,8 @@
           resolveFrame = function (results) {
             cx.save();
             cx.clearRect(0, 0, w, h);
-            cx.drawImage(vid, 0, 0, w, h);
+            if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
+            else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
             var lms = results.poseLandmarks;
             if (lms && lms.length) {
               if (window.drawConnectors && window.POSE_CONNECTIONS)
@@ -119,7 +120,8 @@
           resolveFrame = function (results) {
             cx.save();
             cx.clearRect(0, 0, w, h);
-            cx.drawImage(vid, 0, 0, w, h);
+            if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
+            else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
             var poseLms = results.poseLandmarks;
             var faceLms = results.faceLandmarks;
             var lhLms = results.leftHandLandmarks;
@@ -188,7 +190,8 @@
         return detector.estimatePoses(vid, { maxPoses: 6, flipHorizontal: false }).then(function (poses) {
           cx.save();
           cx.clearRect(0, 0, w, h);
-          cx.drawImage(vid, 0, 0, w, h);
+          if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
+          else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
           var personColors = ['#FFB347', '#FF6B6B', '#7FD8FF', '#00FF88', '#C084FC', '#F472B6'];
           if (!poses || !poses.length) { cx.restore(); return { tracking: false }; }
           for (var p = 0; p < poses.length; p++) {

@@ -4,6 +4,7 @@
   KN.state = {
     showLabels: true,
     showAngles: true,
+    skeletonOnly: false,
     activeModelKey: 'holistic'
   };
 

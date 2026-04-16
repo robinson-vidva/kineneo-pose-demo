@@ -13,6 +13,7 @@
   var flipBtn = document.getElementById('flipBtn');
   var labelsBtn = document.getElementById('labelsBtn');
   var anglesBtn = document.getElementById('anglesBtn');
+  var skeletonBtn = document.getElementById('skeletonBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
   var panel = document.getElementById('panel');
@@ -219,6 +220,7 @@
       flipBtn.disabled = false;
       labelsBtn.disabled = false;
       anglesBtn.disabled = false;
+      skeletonBtn.disabled = false;
       startBtn.textContent = 'Stop';
       startBtn.disabled = false;
       running = true;
@@ -244,6 +246,7 @@
     flipBtn.disabled = true;
     labelsBtn.disabled = true;
     anglesBtn.disabled = true;
+    skeletonBtn.disabled = true;
     startBtn.textContent = 'Start Camera';
     startBtn.disabled = false;
     setStatus('');
@@ -281,6 +284,10 @@
   anglesBtn.addEventListener('click', function () {
     KN.state.showAngles = !KN.state.showAngles;
     anglesBtn.classList.toggle('on', KN.state.showAngles);
+  });
+  skeletonBtn.addEventListener('click', function () {
+    KN.state.skeletonOnly = !KN.state.skeletonOnly;
+    skeletonBtn.classList.toggle('on', KN.state.skeletonOnly);
   });
 
   Object.keys(mdlBtns).forEach(function (key) {
