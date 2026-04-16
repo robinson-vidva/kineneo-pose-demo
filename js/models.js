@@ -79,6 +79,7 @@
                 var v = lms[i].visibility != null ? lms[i].visibility : 0;
                 confS += v; if (v >= 0.5) visC++;
               }
+              if (KN.neuro) KN.neuro.updateBehavior(lms, KN.neuro.MP_MAP);
               cx.restore();
               resolve({ tracking: true, numPersons: 1, landmarkCount: visC, totalLandmarks: 33, meanConfidence: confS / lms.length, jointAngles: ja });
             } else {
@@ -147,7 +148,11 @@
               }
               var totalVis = visC + (lhLms ? lhLms.length : 0) + (rhLms ? rhLms.length : 0) + (faceLms ? faceLms.length : 0);
               var totalPossible = 33 + (lhLms ? 21 : 0) + (rhLms ? 21 : 0) + (faceLms ? 468 : 0);
-              if (KN.neuro) KN.neuro.update(faceLms, poseLms, ja);
+              if (KN.neuro) {
+                KN.neuro.update(faceLms, poseLms, ja);
+                KN.neuro.updateBehavior(poseLms, KN.neuro.MP_MAP);
+                if (faceLms && faceLms.length) KN.neuro.updateFace(faceLms);
+              }
               cx.restore();
               resolve({ tracking: true, numPersons: 1, landmarkCount: totalVis, totalLandmarks: totalPossible, meanConfidence: confS / poseLms.length, jointAngles: ja });
             } else {
@@ -234,6 +239,10 @@
           for (var si = 0; si < bkps.length; si++) {
             var sc = bkps[si].score || 0;
             confS += sc; if (sc >= 0.5) visC++;
+          }
+          if (KN.neuro) {
+            var nkps = bkps.map(function(k) { return { x: k.x / w, y: k.y / h, score: k.score }; });
+            KN.neuro.updateBehavior(nkps, KN.neuro.MV_MAP);
           }
           cx.restore();
           return { tracking: true, numPersons: poses.length, landmarkCount: visC, totalLandmarks: 17, meanConfidence: confS / bkps.length, jointAngles: ja };

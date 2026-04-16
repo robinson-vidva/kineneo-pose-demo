@@ -7,14 +7,52 @@
     blinkTimes: [],
     eyeClosed: false,
     hipHistory: [],
-    asymHistory: []
+    asymHistory: [],
+    allLmHistory: [],
+    noseHistory: []
   };
+
+  // Named landmark map for pose-like models.
+  // MediaPipe Pose (33) uses one index set; MoveNet (17) uses another.
+  var MP_MAP = {
+    nose: 0, lEar: 7, rEar: 8,
+    lShoulder: 11, rShoulder: 12,
+    lElbow: 13, rElbow: 14,
+    lWrist: 15, rWrist: 16,
+    lHip: 23, rHip: 24,
+    lKnee: 25, rKnee: 26,
+    lAnkle: 27, rAnkle: 28
+  };
+  var MV_MAP = {
+    nose: 0, lEar: 3, rEar: 4,
+    lShoulder: 5, rShoulder: 6,
+    lElbow: 7, rElbow: 8,
+    lWrist: 9, rWrist: 10,
+    lHip: 11, rHip: 12,
+    lKnee: 13, rKnee: 14,
+    lAnkle: 15, rAnkle: 16
+  };
+
+  function conf(lm) {
+    if (!lm) return 0;
+    if (lm.visibility != null) return lm.visibility;
+    if (lm.score != null) return lm.score;
+    return 0;
+  }
 
   function bindDom() {
     dom.n_facesym = document.getElementById('n_facesym');
     dom.n_blink = document.getElementById('n_blink');
     dom.n_sway = document.getElementById('n_sway');
     dom.n_motorsym = document.getElementById('n_motorsym');
+    dom.n_smile = document.getElementById('n_smile');
+    dom.n_mouth = document.getElementById('n_mouth');
+    dom.n_brow = document.getElementById('n_brow');
+    dom.n_headtremor = document.getElementById('n_headtremor');
+    dom.b_posture = document.getElementById('b_posture');
+    dom.b_arms = document.getElementById('b_arms');
+    dom.b_stillness = document.getElementById('b_stillness');
+    dom.b_headtilt = document.getElementById('b_headtilt');
     dom.neuroHint = document.getElementById('neuroHint');
   }
 
@@ -23,6 +61,14 @@
     H.setMetric(dom.n_blink, '-');
     H.setMetric(dom.n_sway, '-');
     H.setMetric(dom.n_motorsym, '-');
+    H.setMetric(dom.n_smile, '-');
+    H.setMetric(dom.n_mouth, '-');
+    H.setMetric(dom.n_brow, '-');
+    H.setMetric(dom.n_headtremor, '-');
+    H.setMetric(dom.b_posture, '-');
+    H.setMetric(dom.b_arms, '-');
+    H.setMetric(dom.b_stillness, '-');
+    H.setMetric(dom.b_headtilt, '-');
   }
 
   function resetState() {
@@ -30,6 +76,8 @@
     state.eyeClosed = false;
     state.hipHistory = [];
     state.asymHistory = [];
+    state.allLmHistory = [];
+    state.noseHistory = [];
   }
 
   function setHintVisible(visible) {
@@ -137,6 +185,178 @@
     return s / state.asymHistory.length;
   }
 
+  // Posture classification from named pose keypoints (MediaPipe-style normalized coords).
+  function detectPosture(lm, map) {
+    var lSh = lm[map.lShoulder], rSh = lm[map.rShoulder];
+    var lHip = lm[map.lHip], rHip = lm[map.rHip];
+    var lKn = lm[map.lKnee], rKn = lm[map.rKnee];
+    if (!lSh || !rSh || !lHip || !rHip) return null;
+    if (conf(lSh) < 0.4 || conf(rSh) < 0.4 || conf(lHip) < 0.4 || conf(rHip) < 0.4) return null;
+    var shY = (lSh.y + rSh.y) / 2;
+    var hipY = (lHip.y + rHip.y) / 2;
+    var torsoDy = Math.abs(hipY - shY);
+    var torsoDx = Math.abs(((lSh.x + rSh.x) / 2) - ((lHip.x + rHip.x) / 2));
+    var torsoTilt = Math.atan2(torsoDx, torsoDy) * 180 / Math.PI; // 0 = vertical
+    if (torsoTilt > 55) return 'lying';
+    var kneeY = (lKn && rKn && conf(lKn) > 0.4 && conf(rKn) > 0.4) ? (lKn.y + rKn.y) / 2 : null;
+    if (kneeY != null) {
+      var hipKneeDy = kneeY - hipY;
+      if (torsoTilt > 30) return 'bending';
+      if (hipKneeDy < 0.03) return 'squatting';
+      if (hipKneeDy < 0.12) return 'sitting';
+      return 'standing';
+    }
+    return torsoTilt > 30 ? 'bending' : 'standing';
+  }
+
+  function detectArms(lm, map) {
+    var lSh = lm[map.lShoulder], rSh = lm[map.rShoulder];
+    var lW = lm[map.lWrist], rW = lm[map.rWrist];
+    if (!lSh || !rSh) return null;
+    if (conf(lSh) < 0.4 || conf(rSh) < 0.4) return null;
+    var lUp = lW && conf(lW) > 0.4 && lW.y < lSh.y;
+    var rUp = rW && conf(rW) > 0.4 && rW.y < rSh.y;
+    if (lUp && rUp) return 'both raised';
+    if (lUp || rUp) return 'one raised';
+    return 'down';
+  }
+
+  function detectHeadTilt(lm, map) {
+    var lE = lm[map.lEar], rE = lm[map.rEar];
+    if (!lE || !rE || conf(lE) < 0.4 || conf(rE) < 0.4) return null;
+    var dx = rE.x - lE.x, dy = rE.y - lE.y;
+    return Math.atan2(dy, dx) * 180 / Math.PI;
+  }
+
+  // Stillness from overall landmark movement across 1s window. Pushes all-landmark snapshot
+  // and returns "still" or "moving" string plus a numeric velocity.
+  function updateStillness(lm, now) {
+    var summary = null;
+    if (lm && lm.length) {
+      var xs = 0, ys = 0, n = 0;
+      for (var i = 0; i < lm.length; i++) {
+        if (conf(lm[i]) > 0.4) { xs += lm[i].x; ys += lm[i].y; n++; }
+      }
+      if (n > 0) summary = { t: now, x: xs / n, y: ys / n };
+    }
+    if (!summary) return null;
+    state.allLmHistory.push(summary);
+    var cutoff = now - 1000;
+    while (state.allLmHistory.length && state.allLmHistory[0].t < cutoff) state.allLmHistory.shift();
+    if (state.allLmHistory.length < 3) return null;
+    var first = state.allLmHistory[0], last = state.allLmHistory[state.allLmHistory.length - 1];
+    var dx = last.x - first.x, dy = last.y - first.y;
+    var speed = Math.hypot(dx, dy); // normalized coords/sec-ish
+    return speed < 0.01 ? 'still' : 'moving';
+  }
+
+  // Head tremor: std-dev of nose position over last 1.5s, normalized by inter-eye distance.
+  function updateHeadTremor(face, now) {
+    if (!face || face.length < 300) return null;
+    var nose = face[1];
+    var lEye = face[33], rEye = face[263];
+    if (!nose || !lEye || !rEye) return null;
+    var ref = Math.hypot(lEye.x - rEye.x, lEye.y - rEye.y);
+    if (ref < 0.01) return null;
+    state.noseHistory.push({ t: now, x: nose.x, y: nose.y });
+    var cutoff = now - 1500;
+    while (state.noseHistory.length && state.noseHistory[0].t < cutoff) state.noseHistory.shift();
+    if (state.noseHistory.length < 10) return null;
+    var mx = 0, my = 0;
+    for (var i = 0; i < state.noseHistory.length; i++) { mx += state.noseHistory[i].x; my += state.noseHistory[i].y; }
+    mx /= state.noseHistory.length; my /= state.noseHistory.length;
+    var vx = 0, vy = 0;
+    for (var k = 0; k < state.noseHistory.length; k++) {
+      vx += Math.pow(state.noseHistory[k].x - mx, 2);
+      vy += Math.pow(state.noseHistory[k].y - my, 2);
+    }
+    vx /= state.noseHistory.length; vy /= state.noseHistory.length;
+    return Math.sqrt(vx + vy) / ref;
+  }
+
+  // Smile score: corners-of-mouth height above mid-lip, normalized by mouth width.
+  // >0 smile, ~0 neutral, <0 frown.
+  function computeSmile(face) {
+    var ul = face[13], ll = face[14], lc = face[61], rc = face[291];
+    if (!ul || !ll || !lc || !rc) return null;
+    var midY = (ul.y + ll.y) / 2;
+    var cornerY = (lc.y + rc.y) / 2;
+    var width = Math.hypot(rc.x - lc.x, rc.y - lc.y);
+    if (width < 0.01) return null;
+    return (midY - cornerY) / width;
+  }
+
+  function computeMouthOpen(face) {
+    var ul = face[13], ll = face[14], lc = face[61], rc = face[291];
+    if (!ul || !ll || !lc || !rc) return null;
+    var height = Math.hypot(ll.x - ul.x, ll.y - ul.y);
+    var width = Math.hypot(rc.x - lc.x, rc.y - lc.y);
+    if (width < 0.01) return null;
+    return height / width;
+  }
+
+  function computeBrow(face) {
+    var lB = face[105], rB = face[334];
+    var lBi = face[107], rBi = face[336];
+    var lE = face[159], rE = face[386];
+    if (!lB || !rB || !lE || !rE || !lBi || !rBi) return null;
+    var lGap = Math.abs(lE.y - lB.y);
+    var rGap = Math.abs(rE.y - rB.y);
+    var browInnerDx = Math.hypot(lBi.x - rBi.x, lBi.y - rBi.y);
+    var eyeDx = Math.hypot(lE.x - rE.x, lE.y - rE.y);
+    if (eyeDx < 0.01) return null;
+    var gap = (lGap + rGap) / 2 / eyeDx;
+    var innerRatio = browInnerDx / eyeDx;
+    return { gap: gap, innerRatio: innerRatio };
+  }
+
+  function updateBehavior(lm, map) {
+    var now = performance.now();
+    var posture = detectPosture(lm, map);
+    H.setMetric(dom.b_posture, posture || '-');
+    var arms = detectArms(lm, map);
+    var armsCls = arms === 'both raised' || arms === 'one raised' ? 'good' : null;
+    H.setMetric(dom.b_arms, arms || '-', armsCls);
+    var still = updateStillness(lm, now);
+    H.setMetric(dom.b_stillness, still || '-', still === 'still' ? 'good' : (still === 'moving' ? 'warn' : null));
+    var tilt = detectHeadTilt(lm, map);
+    if (tilt == null) H.setMetric(dom.b_headtilt, '-');
+    else {
+      var tiltAbs = Math.abs(tilt);
+      var tiltCls = tiltAbs < 8 ? 'good' : (tiltAbs < 20 ? 'warn' : 'bad');
+      H.setMetric(dom.b_headtilt, tilt.toFixed(1) + ' deg', tiltCls);
+    }
+  }
+
+  function updateFace(face) {
+    var now = performance.now();
+    var smile = computeSmile(face);
+    if (smile == null) H.setMetric(dom.n_smile, '-');
+    else {
+      var s = Math.max(0, Math.min(1, (smile + 0.02) * 15));
+      var smCls = s > 0.5 ? 'good' : (s > 0.2 ? 'warn' : null);
+      H.setMetric(dom.n_smile, s.toFixed(2), smCls);
+    }
+    var mo = computeMouthOpen(face);
+    if (mo == null) H.setMetric(dom.n_mouth, '-');
+    else H.setMetric(dom.n_mouth, mo > 0.35 ? 'open' : 'closed', mo > 0.35 ? 'warn' : null);
+    var brow = computeBrow(face);
+    if (!brow) H.setMetric(dom.n_brow, '-');
+    else {
+      var label;
+      if (brow.innerRatio < 0.22) label = 'furrowed';
+      else if (brow.gap > 0.42) label = 'raised';
+      else label = 'neutral';
+      H.setMetric(dom.n_brow, label, label === 'furrowed' ? 'bad' : (label === 'raised' ? 'warn' : null));
+    }
+    var tr = updateHeadTremor(face, now);
+    if (tr == null) H.setMetric(dom.n_headtremor, '-');
+    else {
+      var trCls = tr < 0.02 ? 'good' : (tr < 0.05 ? 'warn' : 'bad');
+      H.setMetric(dom.n_headtremor, tr.toFixed(3), trCls);
+    }
+  }
+
   function update(face, pose, jointAngles) {
     var now = performance.now();
 
@@ -174,6 +394,10 @@
     clearPanel: clearPanel,
     resetState: resetState,
     setHintVisible: setHintVisible,
-    update: update
+    update: update,
+    updateBehavior: updateBehavior,
+    updateFace: updateFace,
+    MP_MAP: MP_MAP,
+    MV_MAP: MV_MAP
   };
 })();
