@@ -154,12 +154,54 @@
   .kv .v.good { color: #00FF88; }
   .kv .v.warn { color: #ffb347; }
   .kv .v.bad { color: #ff6b6b; }
+  .top-nav {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .top-nav a {
+    text-decoration: none;
+    font-size: 12px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid #3a3a3a;
+    color: #ccc;
+    background: #2a2a2a;
+    transition: background 0.15s, color 0.15s;
+  }
+  .top-nav a:hover { background: #333; }
+  .top-nav a.active {
+    background: #00FF88;
+    color: #0a0a0a;
+    border-color: #00FF88;
+    font-weight: 600;
+  }
   footer {
     margin-top: auto;
     padding-top: 16px;
     font-size: 11px;
     color: #888;
     text-align: center;
+  }
+  .model-selector {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .model-selector button {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+  .model-subtitle {
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    margin-bottom: 10px;
+    min-height: 16px;
   }
   .placeholder {
     width: 100%;
@@ -177,7 +219,18 @@
 </head>
 <body>
 <div class="app">
+  <nav class="top-nav">
+    <a href="index.html" class="active">Single Model</a>
+    <a href="compare.html">Compare Models</a>
+  </nav>
   <h1>KineNeo - Pose Demo</h1>
+
+  <div class="model-selector" id="modelSelector">
+    <button id="mdl_pose" class="toggle on" type="button">Pose</button>
+    <button id="mdl_holistic" class="toggle" type="button">Holistic</button>
+    <button id="mdl_movenet" class="toggle" type="button">MoveNet Multi</button>
+  </div>
+  <div class="model-subtitle" id="modelSubtitle">1 person -- 33 body landmarks</div>
 
   <div class="stage" id="stage">
     <div class="placeholder" id="placeholder">Tap "Start Camera" to begin</div>
@@ -199,9 +252,10 @@
     <div class="section-title">Detection</div>
     <div class="kv-grid">
       <div class="kv"><span class="k">Status</span><span class="v" id="m_status">-</span></div>
+      <div class="kv"><span class="k">Persons</span><span class="v" id="m_persons">-</span></div>
       <div class="kv"><span class="k">Landmarks visible</span><span class="v" id="m_visible">-</span></div>
       <div class="kv"><span class="k">Mean confidence</span><span class="v" id="m_conf">-</span></div>
-      <div class="kv"><span class="k">Model</span><span class="v">MediaPipe Pose (full)</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v" id="m_model">MediaPipe Pose</span></div>
     </div>
     <div class="section-title">Joint Angles (deg)</div>
     <div class="kv-grid">
@@ -222,8 +276,13 @@
 <video id="video" playsinline autoplay muted style="display:none;"></video>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.15.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.15.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.15.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script>
 (function () {
@@ -239,10 +298,19 @@
   const statusEl = document.getElementById('status');
   const placeholder = document.getElementById('placeholder');
   const panel = document.getElementById('panel');
+  const modelSubtitle = document.getElementById('modelSubtitle');
 
   const m_status = document.getElementById('m_status');
+  const m_persons = document.getElementById('m_persons');
   const m_visible = document.getElementById('m_visible');
   const m_conf = document.getElementById('m_conf');
+  const m_model = document.getElementById('m_model');
+
+  const mdlBtns = {
+    pose: document.getElementById('mdl_pose'),
+    holistic: document.getElementById('mdl_holistic'),
+    movenet: document.getElementById('mdl_movenet')
+  };
 
   // MediaPipe Pose landmark index -> name (33 landmarks)
   const LM_NAMES = [
@@ -269,17 +337,25 @@
     { key: 'a_rknee',     label: 'R.knee', a: 24, b: 26, c: 28 }
   ];
 
-  let pose = null;
-  let camera = null;
   let currentStream = null;
   let facingMode = 'environment';
   let running = false;
   let showLabels = true;
   let showAngles = true;
+  let activeModelKey = 'pose';
+  let activeModel = null;
+  let switching = false;
+  let rafId = null;
 
   let frameCount = 0;
   let lastFpsUpdate = performance.now();
   let fps = 0;
+
+  const MODEL_INFO = {
+    pose:     { name: 'MediaPipe Pose',     desc: '1 person -- 33 body landmarks',                         total: 33 },
+    holistic: { name: 'MediaPipe Holistic',  desc: '1 person -- 33 body + 21+21 hand + 468 face landmarks', total: 543 },
+    movenet:  { name: 'MoveNet MultiPose',   desc: 'Up to 6 people -- 17 keypoints each',                   total: 17 }
+  };
 
   function setStatus(msg, isError) {
     statusEl.textContent = msg || '';
@@ -312,22 +388,18 @@
     return (Math.acos(cos) * 180) / Math.PI;
   }
 
-  function drawAngleArc(ctx, b, a, c, w, h, deg) {
-    // Draw a small arc at vertex b between rays b->a and b->c
-    const bx = b.x * w, by = b.y * h;
-    const ang1 = Math.atan2(a.y * h - by, a.x * w - bx);
-    const ang2 = Math.atan2(c.y * h - by, c.x * w - bx);
-    const r = Math.max(14, Math.min(w, h) * 0.03);
-    // Determine the shorter arc direction
-    let diff = ang2 - ang1;
+  function drawAngleArcPx(ctx, bx, by, ax, ay, cx, cy, w, h) {
+    var ang1 = Math.atan2(ay - by, ax - bx);
+    var ang2 = Math.atan2(cy - by, cx - bx);
+    var r = Math.max(14, Math.min(w, h) * 0.03);
+    var diff = ang2 - ang1;
     while (diff > Math.PI) diff -= 2 * Math.PI;
     while (diff < -Math.PI) diff += 2 * Math.PI;
-    const counterClockwise = diff < 0;
     ctx.save();
     ctx.strokeStyle = 'rgba(255, 179, 71, 0.9)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(bx, by, r, ang1, ang2, counterClockwise);
+    ctx.arc(bx, by, r, ang1, ang2, diff < 0);
     ctx.stroke();
     ctx.restore();
   }
@@ -349,107 +421,81 @@
 
   function clearPanel() {
     setMetric(m_status, 'NO POSE', 'bad');
-    setMetric(m_visible, '- / 33');
+    setMetric(m_persons, '-');
+    setMetric(m_visible, '- / ' + MODEL_INFO[activeModelKey].total);
     setMetric(m_conf, '-');
-    ANGLE_DEFS.forEach(d => setMetric(document.getElementById(d.key), '-'));
+    ANGLE_DEFS.forEach(function(d) { setMetric(document.getElementById(d.key), '-'); });
     badge.textContent = 'NO POSE';
     badge.classList.remove('tracking');
     badge.classList.add('lost');
   }
 
-  function onResults(results) {
-    if (!results.image) return;
-    const w = results.image.width;
-    const h = results.image.height;
-    ensureCanvasSize(w, h);
-
-    ctx.save();
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(results.image, 0, 0, w, h);
-
-    const lms = results.poseLandmarks;
-    if (lms && lms.length) {
-      if (window.drawConnectors && window.POSE_CONNECTIONS) {
-        window.drawConnectors(ctx, lms, window.POSE_CONNECTIONS, {
-          color: '#00FF88',
-          lineWidth: 2
-        });
-      }
-      if (window.drawLandmarks) {
-        window.drawLandmarks(ctx, lms, {
-          color: '#FFFFFF',
-          fillColor: '#FFFFFF',
-          lineWidth: 1,
-          radius: 4
-        });
-      }
-
-      // Angle arcs + joint-angle labels
-      const angleValues = {};
-      for (const d of ANGLE_DEFS) {
-        const A = lms[d.a], B = lms[d.b], C = lms[d.c];
-        const visA = (A && A.visibility != null) ? A.visibility : 1;
-        const visB = (B && B.visibility != null) ? B.visibility : 1;
-        const visC = (C && C.visibility != null) ? C.visibility : 1;
-        if (!A || !B || !C || visA < 0.5 || visB < 0.5 || visC < 0.5) {
-          angleValues[d.key] = null;
-          continue;
-        }
-        const deg = angleDeg(A, B, C);
-        angleValues[d.key] = deg;
-        if (showAngles && deg != null) {
-          drawAngleArc(ctx, B, A, C, w, h, deg);
-          const bx = B.x * w, by = B.y * h;
-          drawTextBadge(ctx, bx + 8, by - 8, d.label + ' ' + deg.toFixed(0), '#ffb347');
-        }
-      }
-
-      // Landmark name labels (subset to avoid face clutter)
-      if (showLabels) {
-        for (const i of LABEL_INDICES) {
-          const p = lms[i];
-          if (!p) continue;
-          const vis = (p.visibility != null) ? p.visibility : 1;
-          if (vis < 0.5) continue;
-          const x = p.x * w, y = p.y * h;
-          drawTextBadge(ctx, x + 6, y + 6, LM_NAMES[i], '#ffffff');
-        }
-      }
-
-      // Metrics
-      let visibleCount = 0;
-      let confSum = 0;
-      for (const p of lms) {
-        const v = (p && p.visibility != null) ? p.visibility : 0;
-        confSum += v;
-        if (v >= 0.5) visibleCount++;
-      }
-      const meanConf = confSum / lms.length;
-      setMetric(m_status, 'TRACKING', 'good');
-      badge.textContent = 'TRACKING';
-      badge.classList.add('tracking');
-      badge.classList.remove('lost');
-
-      const visCls = visibleCount >= 20 ? 'good' : (visibleCount >= 10 ? 'warn' : 'bad');
-      setMetric(m_visible, visibleCount + ' / ' + lms.length, visCls);
-
-      const confCls = meanConf >= 0.75 ? 'good' : (meanConf >= 0.5 ? 'warn' : 'bad');
-      setMetric(m_conf, meanConf.toFixed(2), confCls);
-
-      for (const d of ANGLE_DEFS) {
-        const v = angleValues[d.key];
-        const el = document.getElementById(d.key);
-        if (v == null) setMetric(el, '-');
-        else setMetric(el, v.toFixed(1) + ' deg');
-      }
-    } else {
+  function updateMetrics(stats) {
+    if (!stats || !stats.tracking) {
       clearPanel();
+      return;
     }
-    ctx.restore();
+    setMetric(m_status, 'TRACKING', 'good');
+    badge.textContent = 'TRACKING';
+    badge.classList.add('tracking');
+    badge.classList.remove('lost');
+    setMetric(m_persons, String(stats.numPersons));
+    var total = stats.totalLandmarks || MODEL_INFO[activeModelKey].total;
+    var vis = stats.landmarkCount;
+    var visCls = vis >= 20 ? 'good' : (vis >= 10 ? 'warn' : 'bad');
+    setMetric(m_visible, vis + ' / ' + total, visCls);
+    var mc = stats.meanConfidence;
+    var confCls = mc >= 0.75 ? 'good' : (mc >= 0.5 ? 'warn' : 'bad');
+    setMetric(m_conf, mc.toFixed(2), confCls);
+    var ja = stats.jointAngles || {};
+    for (var i = 0; i < ANGLE_DEFS.length; i++) {
+      var d = ANGLE_DEFS[i];
+      var el = document.getElementById(d.key);
+      var v = ja[d.key];
+      if (v == null) setMetric(el, '-');
+      else setMetric(el, v.toFixed(1) + ' deg');
+    }
+  }
 
+  function computeAnglesMp(lms, w, h) {
+    var ja = {};
+    for (var i = 0; i < ANGLE_DEFS.length; i++) {
+      var d = ANGLE_DEFS[i];
+      var A = lms[d.a], B = lms[d.b], C = lms[d.c];
+      if (!A || !B || !C) { ja[d.key] = null; continue; }
+      var vA = A.visibility != null ? A.visibility : 1;
+      var vB = B.visibility != null ? B.visibility : 1;
+      var vC = C.visibility != null ? C.visibility : 1;
+      if (vA < 0.5 || vB < 0.5 || vC < 0.5) { ja[d.key] = null; continue; }
+      var deg = angleDeg(A, B, C);
+      ja[d.key] = deg;
+      if (showAngles && deg != null) {
+        var bx = B.x * w, by = B.y * h;
+        var ax = A.x * w, ay = A.y * h;
+        var cx = C.x * w, cy = C.y * h;
+        drawAngleArcPx(ctx, bx, by, ax, ay, cx, cy, w, h);
+        drawTextBadge(ctx, bx + 8, by - 8, d.label + ' ' + deg.toFixed(0), '#ffb347');
+      }
+    }
+    return ja;
+  }
+
+  function drawLabelsMp(lms, w, h) {
+    if (!showLabels) return;
+    for (var i = 0; i < LABEL_INDICES.length; i++) {
+      var idx = LABEL_INDICES[i];
+      var p = lms[idx];
+      if (!p) continue;
+      var vis = p.visibility != null ? p.visibility : 1;
+      if (vis < 0.5) continue;
+      drawTextBadge(ctx, p.x * w + 6, p.y * h + 6, LM_NAMES[idx], '#ffffff');
+    }
+  }
+
+  function tickFps() {
     frameCount++;
-    const now = performance.now();
-    const elapsed = now - lastFpsUpdate;
+    var now = performance.now();
+    var elapsed = now - lastFpsUpdate;
     if (elapsed >= 500) {
       fps = Math.round((frameCount * 1000) / elapsed);
       fpsEl.textContent = fps + ' FPS';
@@ -459,17 +505,11 @@
   }
 
   async function stopCurrentStream() {
-    if (camera) {
-      try { camera.stop(); } catch (e) {}
-      camera = null;
-    }
     if (currentStream) {
-      currentStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+      currentStream.getTracks().forEach(function(t) { try { t.stop(); } catch(e) {} });
       currentStream = null;
     }
-    if (video.srcObject) {
-      video.srcObject = null;
-    }
+    if (video.srcObject) { video.srcObject = null; }
   }
 
   async function startStream() {
@@ -505,33 +545,304 @@
     try { await video.play(); } catch (e) {}
   }
 
-  function initPose() {
-    if (pose) return pose;
-    pose = new window.Pose({
-      locateFile: (file) =>
-        'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + file
+  var MOVENET_CONNECTIONS = [
+    [5,7],[7,9],[6,8],[8,10],[5,6],[5,11],[6,12],[11,12],
+    [11,13],[13,15],[12,14],[14,16],[0,1],[0,2],[1,3],[2,4]
+  ];
+  var MOVENET_ANGLE_DEFS = [
+    { key: 'a_lshoulder', label: 'L.shl', a: 7,  b: 5,  c: 11 },
+    { key: 'a_rshoulder', label: 'R.shl', a: 8,  b: 6,  c: 12 },
+    { key: 'a_lelbow',    label: 'L.elb', a: 5,  b: 7,  c: 9 },
+    { key: 'a_relbow',    label: 'R.elb', a: 6,  b: 8,  c: 10 },
+    { key: 'a_lhip',      label: 'L.hip', a: 5,  b: 11, c: 13 },
+    { key: 'a_rhip',      label: 'R.hip', a: 6,  b: 12, c: 14 },
+    { key: 'a_lknee',     label: 'L.knee', a: 11, b: 13, c: 15 },
+    { key: 'a_rknee',     label: 'R.knee', a: 12, b: 14, c: 16 }
+  ];
+  var MOVENET_KP_NAMES = [
+    'nose','L.eye','R.eye','L.ear','R.ear',
+    'L.shoulder','R.shoulder','L.elbow','R.elbow','L.wrist','R.wrist',
+    'L.hip','R.hip','L.knee','R.knee','L.ankle','R.ankle'
+  ];
+  var MOVENET_LABEL_INDICES = [0,5,6,7,8,9,10,11,12,13,14,15,16];
+
+  var models = {};
+
+  // --- MediaPipe Pose model ---
+  models.pose = (function() {
+    var inst = null;
+    var resolveFrame = null;
+    return {
+      name: 'MediaPipe Pose',
+      init: function() {
+        if (inst) return Promise.resolve();
+        if (!window.Pose) return Promise.reject(new Error('MediaPipe Pose failed to load.'));
+        inst = new window.Pose({
+          locateFile: function(f) { return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/' + f; }
+        });
+        inst.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        inst.onResults(function(results) {
+          if (resolveFrame) { var r = resolveFrame; resolveFrame = null; r(results); }
+        });
+        return inst.initialize();
+      },
+      run: function(vid, cvs, cx) {
+        if (!inst || vid.readyState < 2) return Promise.resolve(null);
+        var w = vid.videoWidth, h = vid.videoHeight;
+        ensureCanvasSize(w, h);
+        return new Promise(function(resolve) {
+          resolveFrame = function(results) {
+            cx.save();
+            cx.clearRect(0, 0, w, h);
+            cx.drawImage(vid, 0, 0, w, h);
+            var lms = results.poseLandmarks;
+            if (lms && lms.length) {
+              if (window.drawConnectors && window.POSE_CONNECTIONS)
+                window.drawConnectors(cx, lms, window.POSE_CONNECTIONS, { color: '#00FF88', lineWidth: 2 });
+              if (window.drawLandmarks)
+                window.drawLandmarks(cx, lms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 4 });
+              var ja = computeAnglesMp(lms, w, h);
+              drawLabelsMp(lms, w, h);
+              var visC = 0, confS = 0;
+              for (var i = 0; i < lms.length; i++) {
+                var v = lms[i].visibility != null ? lms[i].visibility : 0;
+                confS += v; if (v >= 0.5) visC++;
+              }
+              cx.restore();
+              resolve({ tracking: true, numPersons: 1, landmarkCount: visC, totalLandmarks: 33, meanConfidence: confS / lms.length, jointAngles: ja });
+            } else {
+              cx.restore();
+              resolve({ tracking: false });
+            }
+          };
+          inst.send({ image: vid });
+        });
+      },
+      destroy: function() { resolveFrame = null; if (inst) { inst.close(); inst = null; } }
+    };
+  })();
+
+  // --- MediaPipe Holistic model ---
+  models.holistic = (function() {
+    var inst = null;
+    var resolveFrame = null;
+    return {
+      name: 'MediaPipe Holistic',
+      init: function() {
+        if (inst) return Promise.resolve();
+        if (!window.Holistic) return Promise.reject(new Error('MediaPipe Holistic failed to load.'));
+        inst = new window.Holistic({
+          locateFile: function(f) { return 'https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/' + f; }
+        });
+        inst.setOptions({ modelComplexity: 1, smoothLandmarks: true, refineFaceLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        inst.onResults(function(results) {
+          if (resolveFrame) { var r = resolveFrame; resolveFrame = null; r(results); }
+        });
+        return inst.initialize();
+      },
+      run: function(vid, cvs, cx) {
+        if (!inst || vid.readyState < 2) return Promise.resolve(null);
+        var w = vid.videoWidth, h = vid.videoHeight;
+        ensureCanvasSize(w, h);
+        return new Promise(function(resolve) {
+          resolveFrame = function(results) {
+            cx.save();
+            cx.clearRect(0, 0, w, h);
+            cx.drawImage(vid, 0, 0, w, h);
+            var poseLms = results.poseLandmarks;
+            var faceLms = results.faceLandmarks;
+            var lhLms = results.leftHandLandmarks;
+            var rhLms = results.rightHandLandmarks;
+            var hasPose = poseLms && poseLms.length;
+            if (hasPose) {
+              if (faceLms && faceLms.length && window.drawConnectors && window.FACEMESH_TESSELATION) {
+                window.drawConnectors(cx, faceLms, window.FACEMESH_TESSELATION, { color: 'rgba(127,216,255,0.15)', lineWidth: 0.5 });
+              }
+              if (window.drawConnectors && window.POSE_CONNECTIONS)
+                window.drawConnectors(cx, poseLms, window.POSE_CONNECTIONS, { color: '#7FD8FF', lineWidth: 2 });
+              if (window.drawLandmarks)
+                window.drawLandmarks(cx, poseLms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 3 });
+              if (lhLms && lhLms.length && window.HAND_CONNECTIONS) {
+                window.drawConnectors(cx, lhLms, window.HAND_CONNECTIONS, { color: '#5BC0EB', lineWidth: 1.5 });
+                window.drawLandmarks(cx, lhLms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 2 });
+              }
+              if (rhLms && rhLms.length && window.HAND_CONNECTIONS) {
+                window.drawConnectors(cx, rhLms, window.HAND_CONNECTIONS, { color: '#5BC0EB', lineWidth: 1.5 });
+                window.drawLandmarks(cx, rhLms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 2 });
+              }
+              var ja = computeAnglesMp(poseLms, w, h);
+              drawLabelsMp(poseLms, w, h);
+              var visC = 0, confS = 0;
+              for (var i = 0; i < poseLms.length; i++) {
+                var v = poseLms[i].visibility != null ? poseLms[i].visibility : 0;
+                confS += v; if (v >= 0.5) visC++;
+              }
+              var totalVis = visC;
+              totalVis += (lhLms ? lhLms.length : 0);
+              totalVis += (rhLms ? rhLms.length : 0);
+              totalVis += (faceLms ? faceLms.length : 0);
+              var totalPossible = 33 + (lhLms ? 21 : 0) + (rhLms ? 21 : 0) + (faceLms ? 468 : 0);
+              cx.restore();
+              resolve({ tracking: true, numPersons: 1, landmarkCount: totalVis, totalLandmarks: totalPossible, meanConfidence: confS / poseLms.length, jointAngles: ja });
+            } else {
+              cx.restore();
+              resolve({ tracking: false });
+            }
+          };
+          inst.send({ image: vid });
+        });
+      },
+      destroy: function() { resolveFrame = null; if (inst) { inst.close(); inst = null; } }
+    };
+  })();
+
+  // --- MoveNet MultiPose model ---
+  models.movenet = (function() {
+    var detector = null;
+    return {
+      name: 'MoveNet MultiPose',
+      init: function() {
+        if (detector) return Promise.resolve();
+        if (!window.poseDetection) return Promise.reject(new Error('TensorFlow.js pose-detection failed to load.'));
+        return tf.setBackend('webgl').then(function() { return tf.ready(); }).then(function() {
+          return poseDetection.createDetector(
+            poseDetection.SupportedModels.MoveNet,
+            { modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING, enableTracking: true, trackerType: poseDetection.TrackerType.BoundingBox }
+          );
+        }).then(function(d) { detector = d; });
+      },
+      run: function(vid, cvs, cx) {
+        if (!detector || vid.readyState < 2) return Promise.resolve(null);
+        var w = vid.videoWidth, h = vid.videoHeight;
+        ensureCanvasSize(w, h);
+        return detector.estimatePoses(vid, { maxPoses: 6, flipHorizontal: false }).then(function(poses) {
+          cx.save();
+          cx.clearRect(0, 0, w, h);
+          cx.drawImage(vid, 0, 0, w, h);
+          var personColors = ['#FFB347','#FF6B6B','#7FD8FF','#00FF88','#C084FC','#F472B6'];
+          if (!poses || !poses.length) { cx.restore(); return { tracking: false }; }
+          for (var p = 0; p < poses.length; p++) {
+            var pose = poses[p];
+            var kps = pose.keypoints;
+            var col = personColors[p % personColors.length];
+            for (var ci = 0; ci < MOVENET_CONNECTIONS.length; ci++) {
+              var a = kps[MOVENET_CONNECTIONS[ci][0]], b = kps[MOVENET_CONNECTIONS[ci][1]];
+              if (a.score >= 0.3 && b.score >= 0.3) {
+                cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
+                cx.strokeStyle = col; cx.lineWidth = 2; cx.stroke();
+              }
+            }
+            for (var ki = 0; ki < kps.length; ki++) {
+              if (kps[ki].score >= 0.3) {
+                cx.beginPath(); cx.arc(kps[ki].x, kps[ki].y, 4, 0, 2 * Math.PI);
+                cx.fillStyle = '#FFF'; cx.fill();
+              }
+            }
+            var minX = Infinity, minY = Infinity;
+            for (var ki2 = 0; ki2 < kps.length; ki2++) {
+              if (kps[ki2].score >= 0.3) { if (kps[ki2].x < minX) minX = kps[ki2].x; if (kps[ki2].y < minY) minY = kps[ki2].y; }
+            }
+            if (minX < Infinity) drawTextBadge(cx, minX, Math.max(0, minY - 20), 'P' + (p + 1) + ' ' + (pose.score != null ? pose.score.toFixed(2) : ''), col);
+          }
+          var best = poses[0];
+          for (var bi = 1; bi < poses.length; bi++) { if ((poses[bi].score || 0) > (best.score || 0)) best = poses[bi]; }
+          var bkps = best.keypoints;
+          var ja = {};
+          for (var ai = 0; ai < MOVENET_ANGLE_DEFS.length; ai++) {
+            var dd = MOVENET_ANGLE_DEFS[ai];
+            var A = bkps[dd.a], B = bkps[dd.b], C = bkps[dd.c];
+            if (!A || !B || !C || A.score < 0.5 || B.score < 0.5 || C.score < 0.5) { ja[dd.key] = null; continue; }
+            var deg = angleDeg(A, B, C);
+            ja[dd.key] = deg;
+            if (showAngles && deg != null) {
+              drawAngleArcPx(cx, B.x, B.y, A.x, A.y, C.x, C.y, w, h);
+              drawTextBadge(cx, B.x + 8, B.y - 8, dd.label + ' ' + deg.toFixed(0), '#ffb347');
+            }
+          }
+          if (showLabels) {
+            for (var li = 0; li < MOVENET_LABEL_INDICES.length; li++) {
+              var idx = MOVENET_LABEL_INDICES[li];
+              var kp = bkps[idx];
+              if (kp && kp.score >= 0.5) drawTextBadge(cx, kp.x + 6, kp.y + 6, MOVENET_KP_NAMES[idx], '#ffffff');
+            }
+          }
+          var visC = 0, confS = 0;
+          for (var si = 0; si < bkps.length; si++) {
+            var sc = bkps[si].score || 0;
+            confS += sc; if (sc >= 0.5) visC++;
+          }
+          cx.restore();
+          return { tracking: true, numPersons: poses.length, landmarkCount: visC, totalLandmarks: 17, meanConfidence: confS / bkps.length, jointAngles: ja };
+        });
+      },
+      destroy: function() { if (detector) { detector.dispose(); detector = null; } }
+    };
+  })();
+
+  function rafLoop() {
+    if (!running) return;
+    rafId = requestAnimationFrame(function() {
+      if (!running || !activeModel) return;
+      activeModel.run(video, canvas, ctx).then(function(stats) {
+        if (!running) return;
+        updateMetrics(stats);
+        tickFps();
+        rafLoop();
+      }).catch(function() { if (running) rafLoop(); });
     });
-    pose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      enableSegmentation: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-    pose.onResults(onResults);
-    return pose;
   }
 
-  function buildMpCamera() {
-    return new window.Camera(video, {
-      onFrame: async () => {
-        if (pose && video.readyState >= 2) {
-          await pose.send({ image: video });
-        }
-      },
-      width: video.videoWidth || 640,
-      height: video.videoHeight || 480
+  function setModelBtns(disabled) {
+    Object.keys(mdlBtns).forEach(function(k) { mdlBtns[k].disabled = disabled; });
+  }
+
+  function highlightModelBtn(key) {
+    Object.keys(mdlBtns).forEach(function(k) {
+      mdlBtns[k].classList.toggle('on', k === key);
     });
+    modelSubtitle.textContent = MODEL_INFO[key].desc;
+    m_model.textContent = MODEL_INFO[key].name;
+  }
+
+  function switchModel(key) {
+    if (key === activeModelKey && activeModel) return Promise.resolve();
+    if (switching) return Promise.resolve();
+    switching = true;
+    setModelBtns(true);
+    var wasRunning = running;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (activeModel) { activeModel.destroy(); activeModel = null; }
+    activeModelKey = key;
+    highlightModelBtn(key);
+    setStatus('Loading ' + MODEL_INFO[key].name + '...');
+    return models[key].init().then(function() {
+      activeModel = models[key];
+      switching = false;
+      setModelBtns(false);
+      clearPanel();
+      setStatus('');
+      if (wasRunning) rafLoop();
+    }).catch(function(err) {
+      switching = false;
+      setModelBtns(false);
+      setStatus('Failed to load ' + MODEL_INFO[key].name + ': ' + (err && err.message ? err.message : 'unknown'), true);
+    });
+  }
+
+  function handleCameraError(err) {
+    startBtn.disabled = false;
+    var name = err && err.name ? err.name : '';
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      setStatus('Camera permission was denied. Please allow camera access in your browser settings and try again.', true);
+    } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      setStatus('No camera was found on this device.', true);
+    } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+      setStatus('The camera is already in use by another application.', true);
+    } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      setStatus('Camera access requires HTTPS. Please open this page over HTTPS.', true);
+    } else {
+      setStatus('Could not start camera: ' + (err && err.message ? err.message : 'unknown error'), true);
+    }
   }
 
   async function start() {
@@ -540,21 +851,11 @@
       setStatus('Camera API is not available in this browser.', true);
       return;
     }
-    if (!window.Pose) {
-      setStatus('Failed to load MediaPipe Pose. Check your connection and reload.', true);
-      return;
-    }
-
     startBtn.disabled = true;
     setStatus('Requesting camera access...');
-
     try {
       await startStream();
-      initPose();
-
-      camera = buildMpCamera();
-      camera.start();
-
+      await switchModel(activeModelKey);
       ensureCanvasSize(video.videoWidth || 640, video.videoHeight || 480);
       placeholder.style.display = 'none';
       canvas.style.display = 'block';
@@ -569,26 +870,18 @@
       running = true;
       clearPanel();
       setStatus('');
+      frameCount = 0; lastFpsUpdate = performance.now();
+      rafLoop();
     } catch (err) {
-      startBtn.disabled = false;
-      const name = err && err.name ? err.name : '';
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        setStatus('Camera permission was denied. Please allow camera access in your browser settings and try again.', true);
-      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        setStatus('No camera was found on this device.', true);
-      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-        setStatus('The camera is already in use by another application.', true);
-      } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        setStatus('Camera access requires HTTPS. Please open this page over HTTPS.', true);
-      } else {
-        setStatus('Could not start camera: ' + (err && err.message ? err.message : 'unknown error'), true);
-      }
+      handleCameraError(err);
     }
   }
 
   async function stop() {
-    await stopCurrentStream();
     running = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (activeModel) { activeModel.destroy(); activeModel = null; }
+    await stopCurrentStream();
     canvas.style.display = 'none';
     fpsEl.style.display = 'none';
     badge.style.display = 'none';
@@ -607,15 +900,17 @@
     flipBtn.disabled = true;
     facingMode = (facingMode === 'environment') ? 'user' : 'environment';
     try {
-      if (camera) { try { camera.stop(); } catch (e) {} camera = null; }
+      running = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       if (currentStream) {
-        currentStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        currentStream.getTracks().forEach(function(t) { try { t.stop(); } catch(e) {} });
         currentStream = null;
       }
       await startStream();
-      camera = buildMpCamera();
-      camera.start();
       ensureCanvasSize(video.videoWidth || 640, video.videoHeight || 480);
+      running = true;
+      frameCount = 0; lastFpsUpdate = performance.now();
+      rafLoop();
     } catch (err) {
       setStatus('Could not switch camera: ' + (err && err.message ? err.message : 'unknown error'), true);
     } finally {
@@ -623,18 +918,37 @@
     }
   }
 
-  startBtn.addEventListener('click', () => { if (running) stop(); else start(); });
+  startBtn.addEventListener('click', function() { if (running) stop(); else start(); });
   flipBtn.addEventListener('click', flip);
-  labelsBtn.addEventListener('click', () => {
+  labelsBtn.addEventListener('click', function() {
     showLabels = !showLabels;
     labelsBtn.classList.toggle('on', showLabels);
   });
-  anglesBtn.addEventListener('click', () => {
+  anglesBtn.addEventListener('click', function() {
     showAngles = !showAngles;
     anglesBtn.classList.toggle('on', showAngles);
   });
 
-  window.addEventListener('pagehide', () => { stopCurrentStream(); });
+  Object.keys(mdlBtns).forEach(function(key) {
+    mdlBtns[key].addEventListener('click', function() {
+      if (switching || key === activeModelKey) return;
+      if (running) {
+        running = false;
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        switchModel(key).then(function() {
+          running = true;
+          frameCount = 0; lastFpsUpdate = performance.now();
+          rafLoop();
+        });
+      } else {
+        activeModelKey = key;
+        highlightModelBtn(key);
+      }
+    });
+  });
+
+  highlightModelBtn('pose');
+  window.addEventListener('pagehide', function() { stop(); });
 })();
 </script>
 </body>
