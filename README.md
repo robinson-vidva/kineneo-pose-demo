@@ -3,7 +3,7 @@
 Browser-based live skeleton tracking and behavioral proof-of-concept. Runs entirely
 on your device. Nothing is uploaded, recorded, or stored.
 
-**Live demo:** https://robinson-vidva.github.io/kineneo-pose-demo/
+**Live demo:** https://robinson-vidva.github.io/kineneo-demo/
 
 ---
 
