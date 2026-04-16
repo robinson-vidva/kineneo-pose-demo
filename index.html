@@ -154,29 +154,6 @@
   .kv .v.good { color: #00FF88; }
   .kv .v.warn { color: #ffb347; }
   .kv .v.bad { color: #ff6b6b; }
-  .top-nav {
-    display: flex;
-    gap: 6px;
-    justify-content: center;
-    margin-bottom: 10px;
-  }
-  .top-nav a {
-    text-decoration: none;
-    font-size: 12px;
-    padding: 5px 14px;
-    border-radius: 20px;
-    border: 1px solid #3a3a3a;
-    color: #ccc;
-    background: #2a2a2a;
-    transition: background 0.15s, color 0.15s;
-  }
-  .top-nav a:hover { background: #333; }
-  .top-nav a.active {
-    background: #00FF88;
-    color: #0a0a0a;
-    border-color: #00FF88;
-    font-weight: 600;
-  }
   footer {
     margin-top: auto;
     padding-top: 16px;
@@ -219,10 +196,6 @@
 </head>
 <body>
 <div class="app">
-  <nav class="top-nav">
-    <a href="index.html" class="active">Single Model</a>
-    <a href="compare.html">Compare Models</a>
-  </nav>
   <h1>KineNeo - Pose Demo</h1>
 
   <div class="model-selector" id="modelSelector">
@@ -935,10 +908,18 @@
       if (running) {
         running = false;
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-        switchModel(key).then(function() {
+        if (activeModel) { activeModel.destroy(); activeModel = null; }
+        stopCurrentStream().then(function() {
+          return switchModel(key);
+        }).then(function() {
+          return startStream();
+        }).then(function() {
+          ensureCanvasSize(video.videoWidth || 640, video.videoHeight || 480);
           running = true;
           frameCount = 0; lastFpsUpdate = performance.now();
           rafLoop();
+        }).catch(function(err) {
+          setStatus('Could not restart camera: ' + (err && err.message ? err.message : 'unknown'), true);
         });
       } else {
         activeModelKey = key;
