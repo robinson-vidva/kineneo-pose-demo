@@ -1,7 +1,7 @@
 # KineNeo Pose Demo
 
-Browser-based live skeleton tracking and behavioral proof-of-concept. Runs entirely on
-your device. Nothing is uploaded, recorded, or stored.
+Browser-based live skeleton tracking and behavioral proof-of-concept. Runs entirely
+on your device. Nothing is uploaded, recorded, or stored.
 
 **Live demo:** https://robinson-vidva.github.io/kineneo-pose-demo/
 
@@ -11,129 +11,188 @@ your device. Nothing is uploaded, recorded, or stored.
 
 This is a **research proof-of-concept** for exploring what on-device pose and face
 tracking can surface. It is **not a medical device**, is **not intended for diagnosis,
-triage, or clinical decision-making**, and has not been validated against any reference
-standard. The metrics shown are crude heuristics computed from landmark coordinates,
-they are noisy, subject-dependent, and can be wrong.
+triage, or clinical decision-making**, and has not been validated against any
+reference standard. The metrics shown are crude heuristics computed from landmark
+coordinates, they are noisy, subject-dependent, and can be wrong.
 
-Do not use outputs of this page as evidence for any health-related decision. If you are
-concerned about a neurological or behavioral symptom, consult a qualified clinician.
+Do not use outputs of this page as evidence for any health-related decision. If you
+are concerned about a neurological or behavioral symptom, consult a qualified
+clinician.
 
 ## What it does
 
 A single HTML page that opens the camera and runs one of three skeleton / landmark
-models in real time:
+models in real time, with on-canvas overlays and a live metrics panel.
+
+### Models
 
 - **MediaPipe Pose** - 1 person, 33 body landmarks
-- **MediaPipe Holistic** (default) - 1 person, 33 body + 21 + 21 hand + 468 face landmarks
+- **MediaPipe Holistic** (default) - 1 person, 33 body + 21 + 21 hand + 468 face
 - **MoveNet MultiPose** - up to 6 people, 17 COCO keypoints each
 
-On top of the raw skeleton it computes and displays:
+You can switch models at any time. Each switch tears down the previous model, stops
+the camera stream, initializes the new model, and restarts the stream.
 
-**Joint angles (deg)** - left and right shoulder, elbow, hip, knee, with arc overlays
-at each vertex when visible.
+### Canvas overlays
 
-**Behavior (works with any model)**
-- Posture: standing / sitting / squatting / bending / lying / upright / tilted
-- Arms: down / one raised / both raised
-- Stillness: still / moving (1s window)
-- Head tilt: degrees from horizontal ear line
+- Skeleton with soft glow (CSS-style `shadowBlur`)
+- Joint-angle arcs at each tracked vertex with degree readout
+- Faint dashed L-R connecting lines between symmetric landmark pairs (visual
+  symmetry check)
+- Glowing red center-of-mass marker (midpoint of shoulder + hip centers)
+- Fading motion trails for nose, both wrists, both ankles (last 16 frames)
+- Per-person bounding-box label for MoveNet multi-person tracking
+- Optional landmark name labels and joint-angle text badges
+- **Skeleton Only** mode that hides the video and renders the skeleton on a near
+  black canvas (great for screenshots / projection)
 
-**Neuro Screen POC (Holistic only, needs face landmarks)**
-- Facial symmetry: mean min/max distance ratio across 3 L-R landmark pairs vs nose
-- Blink rate per minute: via eye-aspect-ratio threshold, 30s rolling window
-- Postural sway: std-dev of hip (or shoulder if hips off-camera) position, normalized to shoulder width, 5s window
-- Motor symmetry: mean absolute L-R difference across available joint angles, 5s window
-- Smile: corners-of-mouth height above outer-lip midpoint, normalized to mouth width
-- Mouth: open / closed
-- Brow: neutral / raised / furrowed
-- Head tremor: std-dev of nose position over 1.5s window
+### Metrics panel
 
-Each metric is color-coded (green / amber / red) against crude reference ranges.
+Each numeric metric has a tiny inline **sparkline** showing the last ~70 frames of
+its value, color-matched to its current good / amber / red status.
+
+**Detection** - status, person count, visible-vs-total landmark count, mean
+confidence, active model.
+
+**Joint angles (deg)** - left and right shoulder, elbow, hip, knee. Computed only
+when the relevant landmarks have visibility >= 0.5.
+
+**Behavior** (works with any model)
+- Posture: standing / sitting / squatting / bending / lying when lower body is
+  visible, otherwise upright / tilted from upper-body shoulders alone
+- Arms: down / one raised / both raised (wrist y vs shoulder y)
+- Stillness: still / moving (1s window of average landmark displacement)
+- Head tilt: degrees, computed from ear-to-ear vector after sorting by image x
+  so 0 deg = level
+
+**Neuro Screen POC** (Holistic only - needs face landmarks)
+- Facial symmetry: mean min/max distance ratio across 3 L-R landmark pairs vs
+  nose tip
+- Blink rate (per minute): eye-aspect-ratio threshold detector, 30s rolling window
+- Postural sway: std-dev of hip-center (or shoulder-center fallback) position,
+  normalized by shoulder width, 5s window
+- Motor symmetry: average of available L-R joint angle deltas (shoulder, elbow,
+  hip, knee), 5s window
+- Smile: corners-of-mouth height above outer-lip midpoint, normalized by mouth
+  width
+- Mouth: open / closed via inner-lip gap to mouth-width ratio
+- Brow: neutral / raised / furrowed via brow-to-eye gap and inter-brow distance
+- Head tremor: std-dev of nose position over a 1.5s window
+- Tremor Hz: 128-point FFT over a 4s window of nose y-position with Hann window
+  and detrend, dominant frequency reported in 0.5-15 Hz band. Color bands tuned
+  to PD rest tremor (4-6 Hz, red) and essential / physiological tremor (8-12 Hz,
+  amber)
+- Hypomimia: per-coordinate std-dev of 24 mid-face landmarks over a 5s window;
+  lower variance = less expressive face
+
+### Controls
+
+- Start Camera / Stop
+- Switch Camera (front <-> back)
+- Labels / Angles / Skeleton Only toggles
+- Fullscreen toggle (uses Fullscreen API; webkit fallback for Safari)
 
 ## How it's built
 
-No build step, no bundler, no frameworks. Plain HTML, CSS, and JavaScript, served as
-static files by GitHub Pages. Third-party dependencies come from jsDelivr CDN at
-runtime.
+No build step, no bundler, no frameworks. Plain HTML, CSS, and JavaScript, served
+as static files by GitHub Pages. Third-party dependencies come from jsDelivr CDN
+at runtime.
 
 ### File layout
 
 ```
-index.html       HTML shell and CDN + local script references
-styles.css       All styles
-js/helpers.js    Shared utilities, constants, and window.KN.state
-js/neuro.js      Neuro Screen logic (all behavior and face metrics)
-js/models.js     The three model objects (pose, holistic, movenet)
-js/app.js        DOM bindings, rAF loop, camera start/stop/flip, model switching
+index.html       HTML shell + CDN script tags + local script tags
+styles.css       All styles (dark theme, panel, sparklines, controls)
+js/helpers.js    Shared state, drawing utilities, landmark/model constants
+js/spark.js     Auto-injected inline sparkline canvases
+js/neuro.js      Behavior + Neuro Screen metric calculations
+js/models.js     The three model objects (Pose, Holistic, MoveNet)
+js/app.js        DOM bindings, rAF loop, camera lifecycle, event listeners
 ```
 
-All files attach to a shared `window.KN` namespace so they can see each other without
-a module loader. Script order in `index.html` matters: helpers first, then neuro,
-then models, then app.
+All files attach to a shared `window.KN` namespace so they can see each other
+without a module loader. Script order in `index.html` matters: helpers first,
+then spark, then neuro, then models, then app.
 
 ### Runtime architecture
 
 ```
-      camera getUserMedia
-             |
-     hidden <video> element
-             |
-  requestAnimationFrame loop (js/app.js)
-             |
-  activeModel.run(video, canvas, ctx)
-     |            |            |
-  pose         holistic     movenet
-  (MediaPipe)  (MediaPipe)  (TensorFlow.js)
-     |            |            |
-     +------------+------------+
-                  |
-         { tracking, jointAngles, ... }
-                  |
-       updateMetrics + updateBehavior
-                  |
-         (Holistic also) updateFace
-                  |
-              DOM panel
+                     camera getUserMedia
+                            |
+                  hidden <video> element
+                            |
+              requestAnimationFrame loop (app.js)
+                            |
+              activeModel.run(video, canvas, ctx)
+                /            |             \
+            pose          holistic         movenet
+         (MediaPipe)    (MediaPipe)     (TensorFlow.js)
+                \            |             /
+                 +-----------+------------+
+                             |
+              { tracking, jointAngles, ... }
+                             |
+        updateMetrics + neuro.updateBehavior + neuro.updateFace
+                             |
+        DOM panel + sparkline buffers + canvas overlays
 ```
 
-Each model object has the same shape: `init()`, `run(video, canvas, ctx)`, `destroy()`.
-The two MediaPipe models use a Promise wrapper around their push-based `onResults`
-callback so `run()` can be awaited like MoveNet's pull-based API. Swapping models at
-runtime tears down the previous detector, stops the camera stream, initializes the new
-detector, and restarts the stream.
+Each model object exposes the same shape: `init()`, `run(video, canvas, ctx)`,
+`destroy()`. The two MediaPipe models wrap their push-based `onResults` callback
+in a Promise so `run()` can be awaited like MoveNet's pull-based API. MoveNet
+keypoints are normalized from pixel coords into [0, 1] before being passed to
+the behavior layer so the same code works across all three models.
 
-### Key constraints
+`helpers.setMetric` is the only place that writes a metric value to the DOM. It
+also pushes the value (parsed from text) into the matching sparkline buffer, so
+adding new metrics gets sparklines automatically.
 
-- Camera must not auto-start (mobile browsers block unprompted autoplay)
-- Prefers rear camera on mobile (`facingMode: environment`) with a front/back toggle
-- Handles `NotAllowedError`, `NotFoundError`, `NotReadableError`, and HTTPS errors with
-  visible user messages
-- Requires HTTPS or localhost for `getUserMedia`
-- All processing on-device - no analytics, cookies, localStorage, or backend
+### Cache busting
 
-## Privacy
+JS / CSS references in `index.html` carry a `?v=N` query string. Bump the
+version when a fresh fetch is needed for users on stale GitHub Pages caches.
+The current build version also appears in the page footer for verification.
 
-- Camera frames are processed in the browser and discarded every frame
-- No recording, no upload, no local storage, no cookies, no analytics
-- No third-party requests beyond the CDN downloads of the model scripts and weights
+### Privacy
+
+- Camera frames are processed in the browser and discarded each frame
+- No recording, no upload, no localStorage / sessionStorage, no cookies, no
+  analytics
+- The only third-party requests are CDN downloads of model scripts and weights
+  on first load
 
 ## Limitations
 
 Short list of things that will bite you in practice:
 
-- **Occlusion** - hidden body parts drop to low-visibility quickly; metrics that
-  require specific landmarks fall back to `-` or a reduced fallback
-- **2D only** - there's no reliable depth. Metrics like sway are projections onto the
-  image plane, not true world-space measurements
+- **Occlusion** - hidden body parts drop to low visibility quickly; metrics that
+  require specific landmarks fall back to `-` or to a reduced approximation
+- **2D only** - no reliable depth. Sway, tremor, and posture metrics are
+  projections onto the image plane, not true world-space measurements
 - **Single camera** - no parallax, no ground truth
-- **Subject variation** - kids, unusual body shapes, wheelchairs, clothing occlusion,
+- **Subject variation** - kids, unusual body shapes, wheelchairs, clothing,
   face coverings all reduce accuracy
-- **Frame rate** - fast movement (tremor, strikes, falls) undersample at camera fps
-- **Lighting** - low light tanks landmark confidence
-- **No behavior semantics** - the "action" is never classified, only the skeleton /
-  face shape. Higher-level behaviors would need a separate classifier on top
-- **Neuro metrics are heuristics** - thresholds were picked for a POC, not tuned on
-  any population. They will mis-classify neutral faces and typical postures regularly
+- **Frame rate limits** - fast events (PD tremor, strikes, falls) are
+  undersampled at typical 24-30 fps webcam rates
+- **Lighting** - low light drops landmark confidence and breaks Neuro signals
+- **No behavior semantics** - the "action" is never classified, only the skeleton
+  / face shape. Higher-level behaviors would need a separate classifier on top
+- **Heuristic thresholds** - all good / warn / bad ranges were picked for a POC,
+  not tuned on any population
+
+## Local development
+
+The site is plain static files. To serve locally over HTTPS (required by
+`getUserMedia` outside `localhost`):
+
+```sh
+# any static server works; example with python
+python3 -m http.server 8000
+# open http://localhost:8000
+```
+
+Open the browser dev console to see `[kineneo]` error messages from the model
+or neuro layers if anything goes wrong silently.
 
 ## Credits
 

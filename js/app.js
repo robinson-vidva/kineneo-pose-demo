@@ -1,3 +1,4 @@
+// app.js - DOM bindings, rAF loop, camera lifecycle, model switching, and event listeners.
 (function () {
   var KN = window.KN = window.KN || {};
   var H = KN.helpers;

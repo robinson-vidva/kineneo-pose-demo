@@ -1,3 +1,4 @@
+// spark.js - inline rolling-line sparklines auto-injected next to each metric value.
 (function () {
   var KN = window.KN = window.KN || {};
 
