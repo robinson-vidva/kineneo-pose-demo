@@ -5,6 +5,7 @@
   var dom = {};
   var state = {
     blinkTimes: [],
+    blinkStartTime: null,
     eyeClosed: false,
     hipHistory: [],
     asymHistory: [],
@@ -73,6 +74,7 @@
 
   function resetState() {
     state.blinkTimes = [];
+    state.blinkStartTime = null;
     state.eyeClosed = false;
     state.hipHistory = [];
     state.asymHistory = [];
@@ -119,6 +121,7 @@
   function updateBlinkRate(face, now) {
     var ear = computeEAR(face);
     if (ear == null) return null;
+    if (state.blinkStartTime == null) state.blinkStartTime = now;
     var CLOSED = 0.15;
     var OPEN = 0.22;
     if (!state.eyeClosed && ear < CLOSED) {
@@ -132,21 +135,24 @@
     while (state.blinkTimes.length && state.blinkTimes[0] < cutoff) {
       state.blinkTimes.shift();
     }
-    var elapsedSec = Math.min(windowMs, now - (state.blinkTimes.length ? state.blinkTimes[0] : now - 1000)) / 1000;
+    var elapsedSec = Math.min(windowMs, now - state.blinkStartTime) / 1000;
     if (elapsedSec < 2) return null;
     return (state.blinkTimes.length / elapsedSec) * 60;
   }
 
   function updatePosturalSway(pose, now) {
-    if (!pose || pose.length < 25) return null;
-    var lHip = pose[23], rHip = pose[24], lSh = pose[11], rSh = pose[12];
-    if (!lHip || !rHip || !lSh || !rSh) return null;
-    var visOK = (lHip.visibility || 0) > 0.5 && (rHip.visibility || 0) > 0.5 && (lSh.visibility || 0) > 0.5 && (rSh.visibility || 0) > 0.5;
-    if (!visOK) return null;
-    var hx = (lHip.x + rHip.x) / 2, hy = (lHip.y + rHip.y) / 2;
+    if (!pose || pose.length < 15) return null;
+    var lSh = pose[11], rSh = pose[12];
+    if (!lSh || !rSh || (lSh.visibility || 0) < 0.5 || (rSh.visibility || 0) < 0.5) return null;
     var shoulderW = Math.hypot(lSh.x - rSh.x, lSh.y - rSh.y);
     if (shoulderW < 0.01) return null;
-    state.hipHistory.push({ t: now, x: hx, y: hy });
+    // Prefer hip center; fall back to shoulder center if hips not visible.
+    var lHip = pose[23], rHip = pose[24];
+    var hipsVis = lHip && rHip && (lHip.visibility || 0) > 0.5 && (rHip.visibility || 0) > 0.5;
+    var cx, cy;
+    if (hipsVis) { cx = (lHip.x + rHip.x) / 2; cy = (lHip.y + rHip.y) / 2; }
+    else { cx = (lSh.x + rSh.x) / 2; cy = (lSh.y + rSh.y) / 2; }
+    state.hipHistory.push({ t: now, x: cx, y: cy });
     var cutoff = now - 5000;
     while (state.hipHistory.length && state.hipHistory[0].t < cutoff) {
       state.hipHistory.shift();
@@ -169,11 +175,19 @@
 
   function updateMotorSymmetry(ja, now) {
     if (!ja) return null;
-    if (ja.a_lshoulder == null || ja.a_rshoulder == null) return null;
-    if (ja.a_lelbow == null || ja.a_relbow == null) return null;
-    var shDiff = Math.abs(ja.a_lshoulder - ja.a_rshoulder);
-    var elDiff = Math.abs(ja.a_lelbow - ja.a_relbow);
-    var avg = (shDiff + elDiff) / 2;
+    var diffs = [];
+    if (ja.a_lshoulder != null && ja.a_rshoulder != null)
+      diffs.push(Math.abs(ja.a_lshoulder - ja.a_rshoulder));
+    if (ja.a_lelbow != null && ja.a_relbow != null)
+      diffs.push(Math.abs(ja.a_lelbow - ja.a_relbow));
+    if (ja.a_lhip != null && ja.a_rhip != null)
+      diffs.push(Math.abs(ja.a_lhip - ja.a_rhip));
+    if (ja.a_lknee != null && ja.a_rknee != null)
+      diffs.push(Math.abs(ja.a_lknee - ja.a_rknee));
+    if (!diffs.length) return null;
+    var avg = 0;
+    for (var di = 0; di < diffs.length; di++) avg += diffs[di];
+    avg /= diffs.length;
     state.asymHistory.push({ t: now, value: avg });
     var cutoff = now - 5000;
     while (state.asymHistory.length && state.asymHistory[0].t < cutoff) {
@@ -190,8 +204,15 @@
     var lSh = lm[map.lShoulder], rSh = lm[map.rShoulder];
     var lHip = lm[map.lHip], rHip = lm[map.rHip];
     var lKn = lm[map.lKnee], rKn = lm[map.rKnee];
-    if (!lSh || !rSh || !lHip || !rHip) return null;
-    if (conf(lSh) < 0.4 || conf(rSh) < 0.4 || conf(lHip) < 0.4 || conf(rHip) < 0.4) return null;
+    if (!lSh || !rSh || conf(lSh) < 0.4 || conf(rSh) < 0.4) return null;
+    var hipsVis = lHip && rHip && conf(lHip) > 0.4 && conf(rHip) > 0.4;
+    // Upper-body-only fallback when hips not in frame.
+    if (!hipsVis) {
+      var shDy = Math.abs(lSh.y - rSh.y);
+      var shDx = Math.abs(lSh.x - rSh.x);
+      if (shDx < 0.05) return 'upright';
+      return shDy / shDx < 0.3 ? 'upright' : 'tilted';
+    }
     var shY = (lSh.y + rSh.y) / 2;
     var hipY = (lHip.y + rHip.y) / 2;
     var torsoDy = Math.abs(hipY - shY);
@@ -224,7 +245,11 @@
   function detectHeadTilt(lm, map) {
     var lE = lm[map.lEar], rE = lm[map.rEar];
     if (!lE || !rE || conf(lE) < 0.4 || conf(rE) < 0.4) return null;
-    var dx = rE.x - lE.x, dy = rE.y - lE.y;
+    // Sort by x so the angle is always measured from image-left to image-right.
+    var leftEar = lE.x < rE.x ? lE : rE;
+    var rightEar = lE.x < rE.x ? rE : lE;
+    var dx = rightEar.x - leftEar.x;
+    var dy = rightEar.y - leftEar.y;
     return Math.atan2(dy, dx) * 180 / Math.PI;
   }
 
@@ -274,10 +299,10 @@
     return Math.sqrt(vx + vy) / ref;
   }
 
-  // Smile score: corners-of-mouth height above mid-lip, normalized by mouth width.
-  // >0 smile, ~0 neutral, <0 frown.
+  // Smile score: corners-of-mouth height above outer-lip midpoint, normalized by mouth width.
+  // >0 smile, ~0 neutral, <0 frown. Uses outer lips (0=upper lip top, 17=lower lip bottom).
   function computeSmile(face) {
-    var ul = face[13], ll = face[14], lc = face[61], rc = face[291];
+    var ul = face[0], ll = face[17], lc = face[61], rc = face[291];
     if (!ul || !ll || !lc || !rc) return null;
     var midY = (ul.y + ll.y) / 2;
     var cornerY = (lc.y + rc.y) / 2;
@@ -344,8 +369,8 @@
     if (!brow) H.setMetric(dom.n_brow, '-');
     else {
       var label;
-      if (brow.innerRatio < 0.22) label = 'furrowed';
-      else if (brow.gap > 0.42) label = 'raised';
+      if (brow.innerRatio < 0.17) label = 'furrowed';
+      else if (brow.gap > 0.55) label = 'raised';
       else label = 'neutral';
       H.setMetric(dom.n_brow, label, label === 'furrowed' ? 'bad' : (label === 'raised' ? 'warn' : null));
     }
