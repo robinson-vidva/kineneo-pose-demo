@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // app.js - DOM bindings, rAF loop, camera lifecycle, model switching, and event listeners.
 (function () {
   var KN = window.KN = window.KN || {};

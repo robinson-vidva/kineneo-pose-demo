@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // neuro.js - Behavior + Neuro Screen metric calculations (posture, blink, sway, FFT, etc.).
 (function () {
   var KN = window.KN = window.KN || {};

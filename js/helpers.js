@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // helpers.js - shared state, drawing utilities, and landmark/model constants on window.KN.
 (function () {
   var KN = window.KN = window.KN || {};

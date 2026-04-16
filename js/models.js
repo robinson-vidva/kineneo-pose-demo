@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // models.js - the three model objects (Pose, Holistic, MoveNet) and their canvas overlays.
 (function () {
   var KN = window.KN = window.KN || {};
