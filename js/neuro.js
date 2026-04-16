@@ -10,7 +10,9 @@
     hipHistory: [],
     asymHistory: [],
     allLmHistory: [],
-    noseHistory: []
+    noseHistory: [],
+    faceLmHistory: [],
+    fftBuf: []
   };
 
   // Named landmark map for pose-like models.
@@ -50,6 +52,8 @@
     dom.n_mouth = document.getElementById('n_mouth');
     dom.n_brow = document.getElementById('n_brow');
     dom.n_headtremor = document.getElementById('n_headtremor');
+    dom.n_tremorhz = document.getElementById('n_tremorhz');
+    dom.n_hypo = document.getElementById('n_hypo');
     dom.b_posture = document.getElementById('b_posture');
     dom.b_arms = document.getElementById('b_arms');
     dom.b_stillness = document.getElementById('b_stillness');
@@ -66,6 +70,8 @@
     H.setMetric(dom.n_mouth, '-');
     H.setMetric(dom.n_brow, '-');
     H.setMetric(dom.n_headtremor, '-');
+    H.setMetric(dom.n_tremorhz, '-');
+    H.setMetric(dom.n_hypo, '-');
     H.setMetric(dom.b_posture, '-');
     H.setMetric(dom.b_arms, '-');
     H.setMetric(dom.b_stillness, '-');
@@ -80,6 +86,8 @@
     state.asymHistory = [];
     state.allLmHistory = [];
     state.noseHistory = [];
+    state.faceLmHistory = [];
+    state.fftBuf = [];
   }
 
   function setHintVisible(visible) {
@@ -380,6 +388,136 @@
       var trCls = tr < 0.02 ? 'good' : (tr < 0.05 ? 'warn' : 'bad');
       H.setMetric(dom.n_headtremor, tr.toFixed(3), trCls);
     }
+    var thz = computeTremorHz(face, now);
+    if (thz == null) H.setMetric(dom.n_tremorhz, '-');
+    else {
+      var hzCls;
+      if (thz >= 4 && thz <= 6) hzCls = 'bad';        // PD rest tremor band
+      else if (thz >= 8 && thz <= 12) hzCls = 'warn'; // essential / physiological
+      else hzCls = 'good';
+      H.setMetric(dom.n_tremorhz, thz.toFixed(1) + ' Hz', hzCls);
+    }
+    var hypo = computeHypomimia(face, now);
+    if (hypo == null) H.setMetric(dom.n_hypo, '-');
+    else {
+      var hypoCls = hypo > 0.04 ? 'good' : (hypo > 0.015 ? 'warn' : 'bad');
+      H.setMetric(dom.n_hypo, hypo.toFixed(3), hypoCls);
+    }
+  }
+
+  // Tiny radix-2 in-place FFT. re[] is real input, im[] starts as zeros.
+  function fft(re, im) {
+    var n = re.length;
+    var j = 0;
+    for (var i = 0; i < n - 1; i++) {
+      if (i < j) {
+        var tr = re[i]; re[i] = re[j]; re[j] = tr;
+        var ti = im[i]; im[i] = im[j]; im[j] = ti;
+      }
+      var k = n >> 1;
+      while (k <= j) { j -= k; k >>= 1; }
+      j += k;
+    }
+    for (var s = 1; (1 << s) <= n; s++) {
+      var m = 1 << s;
+      var halfM = m >> 1;
+      var wmRe = Math.cos(-2 * Math.PI / m);
+      var wmIm = Math.sin(-2 * Math.PI / m);
+      for (var ki = 0; ki < n; ki += m) {
+        var wRe = 1, wIm = 0;
+        for (var jj = 0; jj < halfM; jj++) {
+          var idx = ki + jj;
+          var idx2 = idx + halfM;
+          var trRe = wRe * re[idx2] - wIm * im[idx2];
+          var trIm = wRe * im[idx2] + wIm * re[idx2];
+          re[idx2] = re[idx] - trRe; im[idx2] = im[idx] - trIm;
+          re[idx] = re[idx] + trRe;  im[idx] = im[idx] + trIm;
+          var nwRe = wRe * wmRe - wIm * wmIm;
+          wIm = wRe * wmIm + wIm * wmRe;
+          wRe = nwRe;
+        }
+      }
+    }
+  }
+
+  // Estimate dominant tremor frequency from nose y-position over last ~4s.
+  // Returns Hz (0.5-15 Hz band) or null.
+  function computeTremorHz(face, now) {
+    if (!face || face.length < 100) return null;
+    var nose = face[1];
+    if (!nose) return null;
+    state.fftBuf.push({ t: now, y: nose.y });
+    var WIN_MS = 4000;
+    var cutoff = now - WIN_MS;
+    while (state.fftBuf.length && state.fftBuf[0].t < cutoff) state.fftBuf.shift();
+    if (state.fftBuf.length < 64) return null;
+    // Resample to power-of-two length at fixed rate via linear interpolation.
+    var N = 128;
+    var t0 = state.fftBuf[0].t;
+    var t1 = state.fftBuf[state.fftBuf.length - 1].t;
+    var span = t1 - t0;
+    if (span < 2000) return null;
+    var fs = N / (span / 1000); // Hz
+    var re = new Array(N), im = new Array(N);
+    var bi = 0;
+    for (var i = 0; i < N; i++) {
+      var t = t0 + (span * i) / (N - 1);
+      while (bi + 1 < state.fftBuf.length && state.fftBuf[bi + 1].t < t) bi++;
+      var b0 = state.fftBuf[bi], b1 = state.fftBuf[Math.min(bi + 1, state.fftBuf.length - 1)];
+      var dt = b1.t - b0.t;
+      var f = dt > 0 ? (t - b0.t) / dt : 0;
+      re[i] = b0.y + (b1.y - b0.y) * f;
+      im[i] = 0;
+    }
+    // Detrend (remove mean) and apply Hann window.
+    var mean = 0;
+    for (var k1 = 0; k1 < N; k1++) mean += re[k1];
+    mean /= N;
+    for (var k2 = 0; k2 < N; k2++) {
+      var hann = 0.5 * (1 - Math.cos((2 * Math.PI * k2) / (N - 1)));
+      re[k2] = (re[k2] - mean) * hann;
+    }
+    fft(re, im);
+    var bestBin = 0, bestMag = 0;
+    var minBin = Math.max(1, Math.floor(0.5 * N / fs));
+    var maxBin = Math.min(N / 2, Math.ceil(15 * N / fs));
+    for (var b = minBin; b <= maxBin; b++) {
+      var mag = re[b] * re[b] + im[b] * im[b];
+      if (mag > bestMag) { bestMag = mag; bestBin = b; }
+    }
+    if (bestMag < 1e-7) return null;
+    return (bestBin * fs) / N;
+  }
+
+  // Hypomimia: facial expressivity proxy from rolling variance of all face landmarks
+  // over a 5s window. Lower = less expressive (relates to PD masked-face).
+  function computeHypomimia(face, now) {
+    if (!face || face.length < 300) return null;
+    // Sample 24 stable mid-face landmarks (mouth + brow + eye corners) to keep it cheap.
+    var idxs = [0, 17, 13, 14, 61, 291, 78, 308, 33, 263, 133, 362, 105, 334, 107, 336, 65, 295, 70, 300, 159, 386, 145, 374];
+    var snap = [];
+    for (var i = 0; i < idxs.length; i++) {
+      var p = face[idxs[i]];
+      if (p) snap.push(p.x, p.y);
+    }
+    state.faceLmHistory.push({ t: now, snap: snap });
+    var cutoff = now - 5000;
+    while (state.faceLmHistory.length && state.faceLmHistory[0].t < cutoff) state.faceLmHistory.shift();
+    if (state.faceLmHistory.length < 10) return null;
+    // Per-coord std-dev, summed.
+    var L = state.faceLmHistory.length;
+    var dim = state.faceLmHistory[0].snap.length;
+    var mean = new Array(dim).fill(0);
+    for (var s = 0; s < L; s++) for (var d = 0; d < dim; d++) mean[d] += state.faceLmHistory[s].snap[d];
+    for (var d2 = 0; d2 < dim; d2++) mean[d2] /= L;
+    var sq = new Array(dim).fill(0);
+    for (var s2 = 0; s2 < L; s2++) for (var d3 = 0; d3 < dim; d3++) {
+      var dv = state.faceLmHistory[s2].snap[d3] - mean[d3];
+      sq[d3] += dv * dv;
+    }
+    var sum = 0;
+    for (var d4 = 0; d4 < dim; d4++) sum += Math.sqrt(sq[d4] / L);
+    return sum;
   }
 
   function update(face, pose, jointAngles) {
