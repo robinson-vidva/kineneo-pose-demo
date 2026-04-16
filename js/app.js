@@ -14,6 +14,7 @@
   var labelsBtn = document.getElementById('labelsBtn');
   var anglesBtn = document.getElementById('anglesBtn');
   var skeletonBtn = document.getElementById('skeletonBtn');
+  var fullscreenBtn = document.getElementById('fullscreenBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
   var panel = document.getElementById('panel');
@@ -292,6 +293,29 @@
     KN.state.skeletonOnly = !KN.state.skeletonOnly;
     skeletonBtn.classList.toggle('on', KN.state.skeletonOnly);
   });
+
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function requestFs(el) {
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+  }
+  function exitFs() {
+    if (document.exitFullscreen) return document.exitFullscreen();
+    if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+  }
+  function syncFsBtn() {
+    var on = isFullscreen();
+    fullscreenBtn.classList.toggle('on', on);
+    fullscreenBtn.textContent = on ? 'Exit Fullscreen' : 'Fullscreen';
+  }
+  fullscreenBtn.addEventListener('click', function () {
+    if (isFullscreen()) exitFs();
+    else requestFs(document.documentElement);
+  });
+  document.addEventListener('fullscreenchange', syncFsBtn);
+  document.addEventListener('webkitfullscreenchange', syncFsBtn);
 
   Object.keys(mdlBtns).forEach(function (key) {
     mdlBtns[key].addEventListener('click', function () {
