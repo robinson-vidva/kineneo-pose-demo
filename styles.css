@@ -20,9 +20,26 @@ html, body {
 h1 {
   font-size: 18px;
   font-weight: 500;
-  margin: 4px 0 12px 0;
+  margin: 4px 0 4px 0;
   letter-spacing: 0.3px;
   color: #f0f0f0;
+}
+.mode-nav {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.mode-nav a {
+  color: #888;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.mode-nav a:hover { color: #7FD8FF; }
+.mode-nav-active {
+  color: #00FF88;
+  font-weight: 600;
 }
 .stage {
   position: relative;

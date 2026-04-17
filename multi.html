@@ -5,15 +5,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#1a1a1a" />
-<title>KineNeo - Pose Demo</title>
+<title>KineNeo - Multi-Person</title>
 <link rel="stylesheet" href="styles.css?v=30" />
 </head>
 <body>
 <div class="app">
-  <h1>KineNeo - Pose Demo</h1>
+  <h1>KineNeo - Multi-Person</h1>
   <div class="mode-nav">
-    <span class="mode-nav-active">Single Person (Holistic)</span>
-    <a href="multi.html">Multi-Person (MoveNet)</a>
+    <a href="index.html">Single Person (Holistic)</a>
+    <span class="mode-nav-active">Multi-Person (MoveNet)</span>
   </div>
 
   <div class="stage" id="stage">
@@ -56,8 +56,6 @@
     <button id="labelsBtn" class="toggle on" type="button" disabled>Labels</button>
     <button id="anglesBtn" class="toggle on" type="button" disabled>Angles</button>
     <button id="skeletonBtn" class="toggle" type="button" disabled>Skeleton Off</button>
-    <button id="radarBtn" class="toggle" type="button" disabled>Radar</button>
-    <button id="spectrogramBtn" class="toggle" type="button" disabled>Spectrogram</button>
     <button id="fullscreenBtn" class="toggle" type="button">Fullscreen</button>
   </div>
 
@@ -70,9 +68,9 @@
       <div class="kv"><span class="k">Persons</span><span class="v" id="m_persons">-</span></div>
       <div class="kv"><span class="k">Landmarks visible</span><span class="v" id="m_visible">-</span></div>
       <div class="kv"><span class="k">Mean confidence</span><span class="v" id="m_conf">-</span></div>
-      <div class="kv"><span class="k">Model</span><span class="v" id="m_model">MediaPipe Holistic</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v" id="m_model">MoveNet MultiPose</span></div>
     </div>
-    <div class="section-title">Joint Angles (deg)</div>
+    <div class="section-title">Joint Angles (deg) — best person</div>
     <div class="kv-grid">
       <div class="kv"><span class="k">L shoulder</span><span class="v" id="a_lshoulder">-</span></div>
       <div class="kv"><span class="k">R shoulder</span><span class="v" id="a_rshoulder">-</span></div>
@@ -83,52 +81,20 @@
       <div class="kv"><span class="k">L knee</span><span class="v" id="a_lknee">-</span></div>
       <div class="kv"><span class="k">R knee</span><span class="v" id="a_rknee">-</span></div>
     </div>
-    <div class="section-title">Behavior</div>
-    <div class="kv-grid">
-      <div class="kv"><span class="k">Posture</span><span class="v" id="b_posture">-</span></div>
-      <div class="kv"><span class="k">Arms</span><span class="v" id="b_arms">-</span></div>
-      <div class="kv"><span class="k">Stillness</span><span class="v" id="b_stillness">-</span></div>
-      <div class="kv"><span class="k">Head tilt</span><span class="v" id="b_headtilt">-</span></div>
-    </div>
-    <div class="section-title">Neuro Screen (POC)</div>
-    <div class="neuro-disclaimer">Research proof-of-concept. Not a medical device. Not for diagnosis.</div>
-    <div class="kv-grid" id="neuroGrid">
-      <div class="kv"><span class="k">Facial symmetry</span><span class="v" id="n_facesym">-</span></div>
-      <div class="kv"><span class="k">Blink rate (/min)</span><span class="v" id="n_blink">-</span></div>
-      <div class="kv"><span class="k">Postural sway</span><span class="v" id="n_sway">-</span></div>
-      <div class="kv"><span class="k">Motor symmetry</span><span class="v" id="n_motorsym">-</span></div>
-      <div class="kv"><span class="k">Smile</span><span class="v" id="n_smile">-</span></div>
-      <div class="kv"><span class="k">Mouth</span><span class="v" id="n_mouth">-</span></div>
-      <div class="kv"><span class="k">Brow</span><span class="v" id="n_brow">-</span></div>
-      <div class="kv"><span class="k">Head tremor</span><span class="v" id="n_headtremor">-</span></div>
-      <div class="kv"><span class="k">Tremor Hz</span><span class="v" id="n_tremorhz">-</span></div>
-      <div class="kv"><span class="k">Hypomimia</span><span class="v" id="n_hypo">-</span></div>
-    </div>
-    <div class="neuro-viz">
-      <div class="viz-block hidden" id="radarBlock">
-        <div class="viz-label">Neuro Radar</div>
-        <canvas id="neuroRadar" width="240" height="220"></canvas>
-      </div>
-      <div class="viz-block viz-spec hidden" id="spectrogramBlock">
-        <div class="viz-label">Head Tremor Spectrogram &mdash; 0-15 Hz</div>
-        <canvas id="tremorSpectrogram" width="520" height="100"></canvas>
-      </div>
-    </div>
   </div>
 
-  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v30</span></footer>
+  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">multi v1</span></footer>
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.15.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.15.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.15.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script src="js/helpers.js?v=30"></script>
-<script src="js/spark.js?v=30"></script>
-<script src="js/viz.js?v=30"></script>
-<script src="js/neuro.js?v=30"></script>
-<script src="js/models.js?v=30"></script>
-<script src="js/app.js?v=30"></script>
+<script src="js/multi-models.js?v=30"></script>
+<script src="js/multi-app.js?v=30"></script>
 </body>
 </html>
