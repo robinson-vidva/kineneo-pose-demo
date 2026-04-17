@@ -6,14 +6,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#1a1a1a" />
 <title>KineNeo - Pose Demo</title>
-<link rel="stylesheet" href="styles.css?v=25" />
+<link rel="stylesheet" href="styles.css?v=26" />
 </head>
 <body>
 <div class="app">
   <h1>KineNeo - Pose Demo</h1>
 
   <div class="stage" id="stage">
-    <div class="placeholder" id="placeholder">Tap "Start Camera" to begin</div>
+    <div class="placeholder" id="placeholder">
+      <div class="placeholder-skeleton">
+        <svg class="skeleton-svg" viewBox="0 0 200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="100" cy="40" r="20" />
+          <line x1="100" y1="60" x2="100" y2="90" />
+          <line x1="60" y1="90" x2="140" y2="90" />
+          <line x1="100" y1="90" x2="100" y2="200" />
+          <line x1="70" y1="200" x2="130" y2="200" />
+          <line x1="60" y1="90" x2="40" y2="150" />
+          <line x1="40" y1="150" x2="30" y2="210" />
+          <line x1="140" y1="90" x2="160" y2="150" />
+          <line x1="160" y1="150" x2="170" y2="210" />
+          <line x1="70" y1="200" x2="55" y2="300" />
+          <line x1="55" y1="300" x2="50" y2="380" />
+          <line x1="130" y1="200" x2="145" y2="300" />
+          <line x1="145" y1="300" x2="150" y2="380" />
+          <circle cx="60" cy="90" r="4" />
+          <circle cx="140" cy="90" r="4" />
+          <circle cx="40" cy="150" r="4" />
+          <circle cx="160" cy="150" r="4" />
+          <circle cx="70" cy="200" r="4" />
+          <circle cx="130" cy="200" r="4" />
+          <circle cx="55" cy="300" r="4" />
+          <circle cx="145" cy="300" r="4" />
+        </svg>
+      </div>
+      <div class="placeholder-text">Tap "Start Camera" to begin</div>
+    </div>
     <canvas id="canvas" style="display:none;"></canvas>
     <div class="fps" id="fps" style="display:none;">0 FPS</div>
     <div class="tracking-badge lost" id="trackingBadge" style="display:none;">NO POSE</div>
@@ -85,7 +112,7 @@
     </div>
   </div>
 
-  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v25</span></footer>
+  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v26</span></footer>
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
@@ -93,11 +120,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
 
-<script src="js/helpers.js?v=25"></script>
-<script src="js/spark.js?v=25"></script>
-<script src="js/viz.js?v=25"></script>
-<script src="js/neuro.js?v=25"></script>
-<script src="js/models.js?v=25"></script>
-<script src="js/app.js?v=25"></script>
+<script src="js/helpers.js?v=26"></script>
+<script src="js/spark.js?v=26"></script>
+<script src="js/viz.js?v=26"></script>
+<script src="js/neuro.js?v=26"></script>
+<script src="js/models.js?v=26"></script>
+<script src="js/app.js?v=26"></script>
 </body>
 </html>

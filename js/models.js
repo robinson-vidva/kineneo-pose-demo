@@ -16,6 +16,8 @@
     Object.keys(trailHistory).forEach(function (k) { trailHistory[k].length = 0; });
     prevLms = null;
     for (var i = 0; i < 33; i++) velocities[i] = 0;
+    var rk = Object.keys(regionIntensity);
+    for (var j = 0; j < rk.length; j++) regionIntensity[rk[j]] = 0;
   }
   KN.clearTrails = clearTrails;
 
@@ -95,6 +97,83 @@
   var VEL_SMOOTH = 0.35;
   var VEL_MIN = 0.002;
   var VEL_MAX = 0.03;
+  var DEPTH_Z_RANGE = 0.3;
+
+  function depthScale(z) {
+    var t = -(z || 0) / DEPTH_Z_RANGE;
+    t = Math.max(-1, Math.min(1, t));
+    return 1 + t * 0.5;
+  }
+
+  // --- Body heatmap: per-region accumulated movement intensity ---
+  var regionIntensity = { head: 0, torso: 0, leftArm: 0, rightArm: 0, leftLeg: 0, rightLeg: 0 };
+  var HEATMAP_DECAY = 0.97;
+  var HEATMAP_GAIN = 8.0;
+  var REGION_MAP = {
+    head:     [0,1,2,3,4,5,6,7,8,9,10],
+    torso:    [11,12,23,24],
+    leftArm:  [11,13,15,17,19,21],
+    rightArm: [12,14,16,18,20,22],
+    leftLeg:  [23,25,27,29,31],
+    rightLeg: [24,26,28,30,32]
+  };
+
+  function updateRegionIntensity(lms) {
+    var keys = Object.keys(REGION_MAP);
+    for (var k = 0; k < keys.length; k++) {
+      var region = keys[k];
+      var idxs = REGION_MAP[region];
+      var sum = 0, cnt = 0;
+      for (var i = 0; i < idxs.length; i++) {
+        var idx = idxs[i];
+        if (idx < velocities.length) { sum += velocities[idx]; cnt++; }
+      }
+      var avg = cnt > 0 ? sum / cnt : 0;
+      regionIntensity[region] = regionIntensity[region] * HEATMAP_DECAY + avg * HEATMAP_GAIN * (1 - HEATMAP_DECAY);
+    }
+  }
+
+  function heatColor(t) {
+    t = Math.max(0, Math.min(1, t));
+    var hue = 240 - t * 240;
+    return 'hsla(' + Math.round(hue) + ',90%,55%,';
+  }
+
+  function drawHeatmap(cx, lms, w, h) {
+    var keys = Object.keys(REGION_MAP);
+    cx.save();
+    for (var k = 0; k < keys.length; k++) {
+      var region = keys[k];
+      var idxs = REGION_MAP[region];
+      var sx = 0, sy = 0, cnt = 0;
+      for (var i = 0; i < idxs.length; i++) {
+        var p = lms[idxs[i]];
+        if (!p || (p.visibility != null && p.visibility < 0.3)) continue;
+        sx += p.x * w; sy += p.y * h; cnt++;
+      }
+      if (cnt < 2) continue;
+      var cx_ = sx / cnt, cy_ = sy / cnt;
+      var maxDist = 0;
+      for (var j = 0; j < idxs.length; j++) {
+        var q = lms[idxs[j]];
+        if (!q || (q.visibility != null && q.visibility < 0.3)) continue;
+        var d = Math.hypot(q.x * w - cx_, q.y * h - cy_);
+        if (d > maxDist) maxDist = d;
+      }
+      var radius = Math.max(maxDist * 1.3, 30);
+      var t = Math.min(1, regionIntensity[region] * 4);
+      if (t < 0.02) continue;
+      var base = heatColor(t);
+      var grad = cx.createRadialGradient(cx_, cy_, 0, cx_, cy_, radius);
+      grad.addColorStop(0, base + (0.3 * t).toFixed(2) + ')');
+      grad.addColorStop(1, base + '0)');
+      cx.fillStyle = grad;
+      cx.beginPath();
+      cx.arc(cx_, cy_, radius, 0, 2 * Math.PI);
+      cx.fill();
+    }
+    cx.restore();
+  }
 
   var BODY_CONNECTIONS = [
     [11,13],[13,15],[12,14],[14,16],
@@ -133,7 +212,6 @@
   function drawVelocitySkeleton(cx, lms, w, h) {
     updateVelocities(lms);
     cx.save();
-    cx.lineWidth = 3;
     cx.lineCap = 'round';
     for (var i = 0; i < BODY_CONNECTIONS.length; i++) {
       var ai = BODY_CONNECTIONS[i][0], bi = BODY_CONNECTIONS[i][1];
@@ -151,7 +229,10 @@
       grad.addColorStop(1, cB);
       cx.strokeStyle = grad;
       var avgVel = (velocities[ai] + velocities[bi]) / 2;
-      cx.shadowBlur = 10 + avgVel * 400;
+      var avgZ = ((A.z || 0) + (B.z || 0)) / 2;
+      var ds = depthScale(avgZ);
+      cx.lineWidth = 3 * ds;
+      cx.shadowBlur = (10 + avgVel * 400) * ds;
       cx.shadowColor = velColor(avgVel);
       cx.beginPath();
       cx.moveTo(ax, ay);
@@ -163,11 +244,12 @@
       if (!p || (p.visibility != null && p.visibility < 0.3)) continue;
       var px = p.x * w, py = p.y * h;
       var jc = velColor(velocities[j]);
-      cx.shadowBlur = 6;
+      var dotDs = depthScale(p.z);
+      cx.shadowBlur = 6 * dotDs;
       cx.shadowColor = jc;
       cx.fillStyle = '#FFF';
       cx.beginPath();
-      cx.arc(px, py, 3, 0, 2 * Math.PI);
+      cx.arc(px, py, 3 * dotDs, 0, 2 * Math.PI);
       cx.fill();
     }
     cx.restore();
@@ -241,6 +323,8 @@
             var rhLms = results.rightHandLandmarks;
             if (poseLms && poseLms.length) {
               drawSymmetryOverlay(cx, poseLms, w, h);
+              updateRegionIntensity(poseLms);
+              drawHeatmap(cx, poseLms, w, h);
               if (poseLms[15]) pushTrail('lWrist', poseLms[15].x * w, poseLms[15].y * h);
               if (poseLms[16]) pushTrail('rWrist', poseLms[16].x * w, poseLms[16].y * h);
               if (poseLms[27]) pushTrail('lAnkle', poseLms[27].x * w, poseLms[27].y * h);
