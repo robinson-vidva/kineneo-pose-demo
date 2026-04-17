@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// multi-models.js - MediaPipe Tasks API PoseLandmarker (multi-person, 33 landmarks each).
+// multi-models.js - Tasks API: PoseLandmarker + FaceLandmarker + HandLandmarker.
 (function () {
   var KN = window.KN = window.KN || {};
   var H = KN.helpers;
@@ -8,20 +8,39 @@
   var TASKS_BUNDLE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + TASKS_VERSION + '/vision_bundle.mjs';
   var TASKS_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + TASKS_VERSION + '/wasm';
   var POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
+  var FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task';
+  var HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
 
   var poseLandmarker = null;
+  var faceLandmarker = null;
+  var handLandmarker = null;
   var modulePromise = null;
+  var filesetPromise = null;
 
-  var CONNECTIONS = [
+  var POSE_CONNECTIONS = [
     [11,13],[13,15],[12,14],[14,16],
     [11,12],[11,23],[12,24],[23,24],
     [23,25],[25,27],[24,26],[26,28],
     [15,17],[15,19],[15,21],[17,19],
     [16,18],[16,20],[16,22],[18,20],
     [27,29],[27,31],[29,31],
-    [28,30],[28,32],[30,32],
-    [0,1],[1,2],[2,3],[3,7],
-    [0,4],[4,5],[5,6],[6,8],[9,10]
+    [28,30],[28,32],[30,32]
+  ];
+
+  var HAND_CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [0,9],[9,10],[10,11],[11,12],
+    [0,13],[13,14],[14,15],[15,16],
+    [0,17],[17,18],[18,19],[19,20],
+    [5,9],[9,13],[13,17]
+  ];
+
+  // Subset of face tessellation edges for a lightweight mesh overlay.
+  var FACE_OVAL = [
+    [10,338],[338,297],[297,332],[332,284],[284,251],[251,389],[389,356],[356,454],[454,323],[323,361],[361,288],
+    [288,397],[397,365],[365,379],[379,378],[378,400],[400,377],[377,152],[152,148],[148,176],[176,149],[149,150],
+    [150,136],[136,172],[172,58],[58,132],[132,93],[93,234],[234,127],[127,162],[162,21],[21,54],[54,103],[103,67],[67,109],[109,10]
   ];
 
   var PERSON_COLORS = ['#7FD8FF', '#C084FC', '#00FF88', '#FFB347', '#FF6B6B', '#F472B6'];
@@ -52,30 +71,67 @@
     return modulePromise;
   }
 
+  function getFileset() {
+    if (!filesetPromise) {
+      filesetPromise = getModule().then(function (mod) {
+        return mod.FilesetResolver.forVisionTasks(TASKS_WASM).then(function (fs) {
+          return { mod: mod, fileset: fs };
+        });
+      });
+    }
+    return filesetPromise;
+  }
+
   KN.multiModel = {
-    name: 'Tasks PoseLandmarker',
+    name: 'Tasks API (Pose + Face + Hands)',
     init: function (onProgress) {
-      if (poseLandmarker) return Promise.resolve();
       var progress = onProgress || function () {};
       progress('Loading MediaPipe Tasks Vision...');
-      return getModule().then(function (mod) {
-        progress('Loading WASM runtime...');
-        return mod.FilesetResolver.forVisionTasks(TASKS_WASM).then(function (fileset) {
+      return getFileset().then(function (ctx) {
+        var tasks = [];
+        if (!poseLandmarker) {
           progress('Downloading PoseLandmarker model...');
-          return mod.PoseLandmarker.createFromOptions(fileset, {
-            baseOptions: { modelAssetPath: POSE_MODEL, delegate: 'GPU' },
-            runningMode: 'VIDEO',
-            numPoses: 6,
-            minPoseDetectionConfidence: 0.5,
-            minPosePresenceConfidence: 0.5,
-            minTrackingConfidence: 0.5
-          });
-        });
-      }).then(function (lm) {
-        poseLandmarker = lm;
-        console.log('[kineneo-multi] PoseLandmarker ready');
+          tasks.push(
+            ctx.mod.PoseLandmarker.createFromOptions(ctx.fileset, {
+              baseOptions: { modelAssetPath: POSE_MODEL, delegate: 'GPU' },
+              runningMode: 'VIDEO',
+              numPoses: 6,
+              minPoseDetectionConfidence: 0.5,
+              minPosePresenceConfidence: 0.5,
+              minTrackingConfidence: 0.5
+            }).then(function (lm) { poseLandmarker = lm; console.log('[kineneo-multi] PoseLandmarker ready'); })
+          );
+        }
+        if (!faceLandmarker) {
+          progress('Downloading FaceLandmarker model...');
+          tasks.push(
+            ctx.mod.FaceLandmarker.createFromOptions(ctx.fileset, {
+              baseOptions: { modelAssetPath: FACE_MODEL, delegate: 'GPU' },
+              runningMode: 'VIDEO',
+              numFaces: 6,
+              minFaceDetectionConfidence: 0.5,
+              minFacePresenceConfidence: 0.5,
+              minTrackingConfidence: 0.5
+            }).then(function (lm) { faceLandmarker = lm; console.log('[kineneo-multi] FaceLandmarker ready'); })
+          );
+        }
+        if (!handLandmarker) {
+          progress('Downloading HandLandmarker model...');
+          tasks.push(
+            ctx.mod.HandLandmarker.createFromOptions(ctx.fileset, {
+              baseOptions: { modelAssetPath: HAND_MODEL, delegate: 'GPU' },
+              runningMode: 'VIDEO',
+              numHands: 4,
+              minHandDetectionConfidence: 0.5,
+              minHandPresenceConfidence: 0.5,
+              minTrackingConfidence: 0.5
+            }).then(function (lm) { handLandmarker = lm; console.log('[kineneo-multi] HandLandmarker ready'); })
+          );
+        }
+        progress('Loading all models...');
+        return Promise.all(tasks);
       }).catch(function (err) {
-        console.error('[kineneo-multi] PoseLandmarker init failed:', err);
+        console.error('[kineneo-multi] init failed:', err);
         throw err;
       });
     },
@@ -83,16 +139,64 @@
       if (!poseLandmarker || vid.readyState < 2) return Promise.resolve(null);
       var w = vid.videoWidth, h = vid.videoHeight;
       H.ensureCanvasSize(cvs, w, h);
-      var result;
-      try { result = poseLandmarker.detectForVideo(vid, performance.now()); }
-      catch (e) { console.error('[kineneo-multi] detectForVideo:', e); return Promise.resolve(null); }
+      var ts = performance.now();
+
+      var poseResult, faceResult, handResult;
+      try { poseResult = poseLandmarker.detectForVideo(vid, ts); } catch (e) { poseResult = { landmarks: [] }; }
+      try { faceResult = faceLandmarker ? faceLandmarker.detectForVideo(vid, ts) : { faceLandmarks: [] }; } catch (e) { faceResult = { faceLandmarks: [] }; }
+      try { handResult = handLandmarker ? handLandmarker.detectForVideo(vid, ts) : { landmarks: [] }; } catch (e) { handResult = { landmarks: [] }; }
 
       cx.save();
       cx.clearRect(0, 0, w, h);
       if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
       else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
 
-      var allLandmarks = result.landmarks || [];
+      // --- Face meshes ---
+      var faces = faceResult.faceLandmarks || [];
+      for (var fi = 0; fi < faces.length; fi++) {
+        var face = faces[fi];
+        cx.save();
+        cx.strokeStyle = 'rgba(127,216,255,0.12)';
+        cx.lineWidth = 0.5;
+        for (var ei = 0; ei < FACE_OVAL.length; ei++) {
+          var fa = face[FACE_OVAL[ei][0]], fb = face[FACE_OVAL[ei][1]];
+          if (fa && fb) {
+            cx.beginPath(); cx.moveTo(fa.x * w, fa.y * h); cx.lineTo(fb.x * w, fb.y * h); cx.stroke();
+          }
+        }
+        cx.restore();
+      }
+
+      // --- Hand skeletons ---
+      var hands = handResult.landmarks || [];
+      var handedness = handResult.handednesses || [];
+      for (var hi = 0; hi < hands.length; hi++) {
+        var hand = hands[hi];
+        var handLabel = (handedness[hi] && handedness[hi][0] && handedness[hi][0].displayName) || '';
+        var handCol = handLabel === 'Left' ? '#5BC0EB' : '#C084FC';
+        cx.save();
+        cx.shadowBlur = 6;
+        cx.shadowColor = handCol;
+        cx.strokeStyle = handCol;
+        cx.lineWidth = 1.5;
+        cx.lineCap = 'round';
+        for (var hci = 0; hci < HAND_CONNECTIONS.length; hci++) {
+          var ha = hand[HAND_CONNECTIONS[hci][0]], hb = hand[HAND_CONNECTIONS[hci][1]];
+          if (ha && hb) {
+            cx.beginPath(); cx.moveTo(ha.x * w, ha.y * h); cx.lineTo(hb.x * w, hb.y * h); cx.stroke();
+          }
+        }
+        for (var hk = 0; hk < hand.length; hk++) {
+          cx.fillStyle = '#FFF';
+          cx.beginPath(); cx.arc(hand[hk].x * w, hand[hk].y * h, 2, 0, 2 * Math.PI); cx.fill();
+        }
+        if (handLabel) H.drawTextBadge(cx, hand[0].x * w + 8, hand[0].y * h - 14, handLabel, handCol);
+        cx.shadowBlur = 0;
+        cx.restore();
+      }
+
+      // --- Body skeletons ---
+      var allLandmarks = poseResult.landmarks || [];
       if (!allLandmarks.length) { cx.restore(); return Promise.resolve({ tracking: false, numPersons: 0 }); }
 
       for (var p = 0; p < allLandmarks.length; p++) {
@@ -105,17 +209,14 @@
         cx.strokeStyle = col;
         cx.lineWidth = 2.5;
         cx.lineCap = 'round';
-        for (var ci = 0; ci < CONNECTIONS.length; ci++) {
-          var ai = CONNECTIONS[ci][0], bi = CONNECTIONS[ci][1];
+        for (var ci = 0; ci < POSE_CONNECTIONS.length; ci++) {
+          var ai = POSE_CONNECTIONS[ci][0], bi = POSE_CONNECTIONS[ci][1];
           var A = lms[ai], B = lms[bi];
           if (!A || !B) continue;
           var vA = A.visibility != null ? A.visibility : 1;
           var vB = B.visibility != null ? B.visibility : 1;
           if (vA < 0.3 || vB < 0.3) continue;
-          cx.beginPath();
-          cx.moveTo(A.x * w, A.y * h);
-          cx.lineTo(B.x * w, B.y * h);
-          cx.stroke();
+          cx.beginPath(); cx.moveTo(A.x * w, A.y * h); cx.lineTo(B.x * w, B.y * h); cx.stroke();
         }
         cx.restore();
 
@@ -123,15 +224,11 @@
           var pt = lms[ki];
           if (!pt || (pt.visibility != null && pt.visibility < 0.3)) continue;
           cx.fillStyle = '#FFF';
-          cx.shadowBlur = 4;
-          cx.shadowColor = col;
-          cx.beginPath();
-          cx.arc(pt.x * w, pt.y * h, 3, 0, 2 * Math.PI);
-          cx.fill();
+          cx.shadowBlur = 4; cx.shadowColor = col;
+          cx.beginPath(); cx.arc(pt.x * w, pt.y * h, 3, 0, 2 * Math.PI); cx.fill();
           cx.shadowBlur = 0;
         }
 
-        // Person label
         var minX = Infinity, minY = Infinity;
         for (var li = 0; li < lms.length; li++) {
           if (lms[li] && (lms[li].visibility || 0) >= 0.3) {
@@ -141,7 +238,6 @@
         }
         if (minX < Infinity) H.drawTextBadge(cx, minX, Math.max(0, minY - 22), 'P' + (p + 1), col);
 
-        // Labels for this person
         if (KN.state.showLabels) {
           for (var la = 0; la < LABEL_INDICES.length; la++) {
             var idx = LABEL_INDICES[la];
@@ -173,19 +269,24 @@
         var v = bestLms[si] ? (bestLms[si].visibility || 0) : 0;
         confS += v; if (v >= 0.5) visC++;
       }
+      var totalLms = 33 * allLandmarks.length + faces.length * 478 + hands.length * 21;
 
       cx.restore();
       return Promise.resolve({
         tracking: true,
         numPersons: allLandmarks.length,
+        numFaces: faces.length,
+        numHands: hands.length,
         landmarkCount: visC,
-        totalLandmarks: 33,
+        totalLandmarks: totalLms,
         meanConfidence: confS / bestLms.length,
         jointAngles: ja
       });
     },
     destroy: function () {
       if (poseLandmarker) { poseLandmarker.close(); poseLandmarker = null; }
+      if (faceLandmarker) { faceLandmarker.close(); faceLandmarker = null; }
+      if (handLandmarker) { handLandmarker.close(); handLandmarker = null; }
     }
   };
 

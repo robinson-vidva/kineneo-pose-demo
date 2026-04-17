@@ -52,10 +52,10 @@
   function updateMetrics(stats) {
     if (!stats || !stats.tracking) { clearPanel(); return; }
     H.setMetric(m_status, 'TRACKING', 'good');
-    badge.textContent = stats.numPersons + ' PERSON' + (stats.numPersons > 1 ? 'S' : '');
+    badge.textContent = stats.numPersons + 'P ' + (stats.numFaces || 0) + 'F ' + (stats.numHands || 0) + 'H';
     badge.classList.add('tracking');
     badge.classList.remove('lost');
-    H.setMetric(m_persons, String(stats.numPersons), stats.numPersons > 1 ? 'good' : null);
+    H.setMetric(m_persons, stats.numPersons + ' body, ' + (stats.numFaces || 0) + ' face, ' + (stats.numHands || 0) + ' hand', stats.numPersons > 1 ? 'good' : null);
     var vis = stats.landmarkCount;
     var visCls = vis >= 12 ? 'good' : (vis >= 7 ? 'warn' : 'bad');
     H.setMetric(m_visible, vis + ' / ' + stats.totalLandmarks, visCls);
