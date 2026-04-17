@@ -288,8 +288,8 @@
   var SK_MODES = [
     { skel: false, bg: 'none',   label: 'Skeleton Off' },
     { skel: true,  bg: 'none',   label: 'Skeleton' },
-    { skel: true,  bg: 'grid',   label: 'Skel: Grid' },
-    { skel: true,  bg: 'neural', label: 'Skel: Neural' }
+    { skel: true,  bg: 'matrix', label: 'Skel: Matrix' },
+    { skel: true,  bg: 'void',   label: 'Skel: Void' }
   ];
   var skModeIdx = 0;
   skeletonBtn.addEventListener('click', function () {
