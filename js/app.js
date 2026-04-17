@@ -241,7 +241,7 @@
       poseReady = true;
     } else if (mode === 'objects' && !objectsReady) {
       setStatus('Loading COCO-SSD (first time may take a moment)...');
-      await KN.objects.init();
+      await KN.objects.init(function (msg) { setStatus(msg); });
       objectsReady = true;
     }
   }
@@ -256,7 +256,20 @@
     setStatus('Requesting camera access...');
     try {
       await startStream();
+    } catch (err) {
+      handleCameraError(err);
+      return;
+    }
+    try {
       await initActiveModel();
+    } catch (err) {
+      console.error('[kineneo] model init failed:', err);
+      setStatus('Failed to load ' + (mode === 'pose' ? 'MediaPipe Holistic' : 'COCO-SSD') + ': ' + (err && err.message ? err.message : 'unknown error'), true);
+      startBtn.disabled = false;
+      await stopCurrentStream();
+      return;
+    }
+    try {
       H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
       placeholder.style.display = 'none';
       canvas.style.display = 'block';
@@ -318,7 +331,8 @@
       frameCount = 0; lastFpsUpdate = performance.now();
       rafLoop();
     } catch (err) {
-      setStatus('Failed to load model: ' + (err && err.message ? err.message : 'unknown'), true);
+      console.error('[kineneo] switchMode init failed:', err);
+      setStatus('Failed to load ' + (mode === 'pose' ? 'MediaPipe Holistic' : 'COCO-SSD') + ': ' + (err && err.message ? err.message : 'unknown error'), true);
     }
   }
 

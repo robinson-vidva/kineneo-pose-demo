@@ -11,8 +11,8 @@
     return new Promise(function (resolve, reject) {
       var s = document.createElement('script');
       s.src = url;
-      s.crossOrigin = 'anonymous';
-      s.onload = resolve;
+      s.async = true;
+      s.onload = function () { resolve(); };
       s.onerror = function () { reject(new Error('Failed to load ' + url)); };
       document.head.appendChild(s);
     });
@@ -64,20 +64,44 @@
 
   KN.objects = {
     name: 'COCO-SSD Objects',
-    init: function () {
+    init: function (onProgress) {
       if (detector) return Promise.resolve();
+      var progress = onProgress || function () {};
       var chain = Promise.resolve();
       if (!scriptsLoaded) {
         chain = chain
-          .then(function () { return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js'); })
-          .then(function () { return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js'); })
-          .then(function () { scriptsLoaded = true; });
+          .then(function () {
+            progress('Loading TensorFlow.js...');
+            return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js');
+          })
+          .then(function () {
+            if (typeof window.tf === 'undefined') throw new Error('TensorFlow.js global (tf) not available after script load');
+            progress('Loading COCO-SSD library...');
+            return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+          })
+          .then(function () {
+            if (typeof window.cocoSsd === 'undefined') throw new Error('COCO-SSD global (cocoSsd) not available after script load');
+            scriptsLoaded = true;
+          });
       }
       return chain
-        .then(function () { return tf.setBackend('webgl'); })
+        .then(function () {
+          progress('Initializing WebGL backend...');
+          return tf.setBackend('webgl');
+        })
         .then(function () { return tf.ready(); })
-        .then(function () { return cocoSsd.load({ base: 'lite_mobilenet_v2' }); })
-        .then(function (model) { detector = model; });
+        .then(function () {
+          progress('Downloading COCO-SSD weights (~5 MB)...');
+          return cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        })
+        .then(function (model) {
+          detector = model;
+          console.log('[kineneo] COCO-SSD ready. Backend:', tf.getBackend());
+        })
+        .catch(function (err) {
+          console.error('[kineneo] COCO-SSD init failed:', err);
+          throw err;
+        });
     },
     run: function (vid, cvs, cx) {
       if (!detector || vid.readyState < 2) return Promise.resolve(null);
