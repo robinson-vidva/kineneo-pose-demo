@@ -24,21 +24,34 @@ clinician.
 A single HTML page that opens the camera and runs **MediaPipe Holistic** in real
 time, with on-canvas overlays and a live metrics panel.
 
-### Model
+### Models
 
-- **MediaPipe Holistic** - 1 person, 33 body + 21 + 21 hand + 468 face landmarks
+- **MediaPipe Holistic** (always on) - 1 person, 33 body + 21 + 21 hand + 468
+  face landmarks. Also produces a segmentation mask used for the Background
+  cutout / blur effects.
+- **MediaPipe Face Landmarker** (Tasks API, opt-in) - adds 52 ARKit-style
+  facial expression blend shapes (eyeBlink, browInnerUp, jawOpen,
+  mouthSmileLeft, etc.) on top of Holistic. Loaded on-demand when the
+  "Blend Shapes" button is toggled.
+- **MediaPipe Gesture Recognizer** (Tasks API, opt-in) - recognizes 7 common
+  hand gestures (Thumb Up / Down, Open Palm, Closed Fist, Pointing Up,
+  Victory, ILoveYou) with left/right handedness. Loaded on-demand when the
+  "Gestures" button is toggled.
 
 ### Canvas overlays
 
-- Skeleton with soft glow (CSS-style `shadowBlur`)
+- Velocity-gradient skeleton: limb color maps to movement speed
+  (blue=still → cyan → green → yellow → red=fast), glow scales with velocity
 - Joint-angle arcs at each tracked vertex with degree readout
 - Faint dashed L-R connecting lines between symmetric landmark pairs (visual
   symmetry check)
 - Glowing red center-of-mass marker (midpoint of shoulder + hip centers)
-- Fading motion trails for nose, both wrists, both ankles (last 16 frames)
+- Fading motion trails (cyan→purple gradient) for nose, wrists, ankles
 - Optional landmark name labels and joint-angle text badges
-- **Skeleton Only** mode that hides the video and renders the skeleton on a near
-  black canvas (great for screenshots / projection)
+- **Background** button cycles through: Normal / Blur / Cutout / Skeleton.
+  Blur and Cutout use Holistic's segmentation mask to isolate the subject.
+- Gesture widget: live floating pill near the bottom of the canvas showing
+  currently-detected hand gestures with confidence scores
 
 ### Metrics panel
 
@@ -100,7 +113,8 @@ styles.css       All styles (dark theme, glassmorphism, sparklines, controls)
 js/helpers.js    Shared state, drawing utilities, landmark/model constants
 js/spark.js      Auto-injected inline sparkline canvases
 js/neuro.js      Behavior + Neuro Screen metric calculations
-js/models.js     MediaPipe Holistic model + velocity-gradient skeleton overlays
+js/models.js     MediaPipe Holistic + velocity-gradient skeleton + background modes
+js/tasks.js      MediaPipe Tasks Vision: Face Landmarker + Gesture Recognizer
 js/app.js        DOM bindings, rAF loop, camera lifecycle, event listeners
 ```
 

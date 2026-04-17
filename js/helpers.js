@@ -6,7 +6,9 @@
   KN.state = {
     showLabels: true,
     showAngles: true,
-    skeletonOnly: false
+    backgroundMode: 'normal',
+    blendShapesEnabled: false,
+    gesturesEnabled: false
   };
 
   KN.constants = {

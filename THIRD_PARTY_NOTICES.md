@@ -24,6 +24,16 @@ The full text of the Apache License, Version 2.0 is available at
 - **Source:** <https://github.com/google/mediapipe>
 - **Package:** <https://www.npmjs.com/package/@mediapipe/drawing_utils>
 
+## @mediapipe/tasks-vision (loaded dynamically when Blend Shapes or Gestures is enabled)
+
+- **Copyright** (c) Google LLC
+- **License:** Apache License, Version 2.0
+- **Source:** <https://github.com/google/mediapipe>
+- **Package:** <https://www.npmjs.com/package/@mediapipe/tasks-vision>
+- **Model files:** Pretrained face_landmarker.task and gesture_recognizer.task
+  are downloaded from <https://storage.googleapis.com/mediapipe-models/>
+  (licensed by Google under Apache-2.0).
+
 ---
 
 ## Trademarks
