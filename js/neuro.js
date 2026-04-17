@@ -14,8 +14,12 @@
     allLmHistory: [],
     noseHistory: [],
     faceLmHistory: [],
-    fftBuf: []
+    fftBuf: [],
+    lastSpectrum: null  // { mags: Float array, fs: Hz, n: points, loBin, hiBin }
   };
+
+  // Latest raw computed values, used by radar / spectrogram renderers.
+  var latest = { sym: null, blink: null, sway: null, motor: null, hypo: null, smile: null };
 
   // Named landmark map for MediaPipe Holistic/Pose body landmarks (33 indices).
   var MP_MAP = {
@@ -79,7 +83,12 @@
     state.noseHistory = [];
     state.faceLmHistory = [];
     state.fftBuf = [];
+    state.lastSpectrum = null;
+    latest.sym = latest.blink = latest.sway = latest.motor = latest.hypo = latest.smile = null;
   }
+
+  function getLatest() { return latest; }
+  function getSpectrum() { return state.lastSpectrum; }
 
   function computeFaceSymmetry(face) {
     if (!face || face.length < 300) return null;
@@ -351,9 +360,10 @@
   function updateFace(face) {
     var now = performance.now();
     var smile = computeSmile(face);
-    if (smile == null) H.setMetric(dom.n_smile, '-');
+    if (smile == null) { H.setMetric(dom.n_smile, '-'); latest.smile = null; }
     else {
       var s = Math.max(0, Math.min(1, (smile + 0.02) * 15));
+      latest.smile = s;
       var smCls = s > 0.5 ? 'good' : (s > 0.2 ? 'warn' : null);
       H.setMetric(dom.n_smile, s.toFixed(2), smCls);
     }
@@ -385,6 +395,7 @@
       H.setMetric(dom.n_tremorhz, thz.toFixed(1) + ' Hz', hzCls);
     }
     var hypo = computeHypomimia(face, now);
+    latest.hypo = hypo;
     if (hypo == null) H.setMetric(dom.n_hypo, '-');
     else {
       var hypoCls = hypo > 0.04 ? 'good' : (hypo > 0.015 ? 'warn' : 'bad');
@@ -468,10 +479,14 @@
     var bestBin = 0, bestMag = 0;
     var minBin = Math.max(1, Math.floor(0.5 * N / fs));
     var maxBin = Math.min(N / 2, Math.ceil(15 * N / fs));
+    // Store full spectrum within the band for the spectrogram renderer.
+    var mags = new Array(maxBin - minBin + 1);
     for (var b = minBin; b <= maxBin; b++) {
       var mag = re[b] * re[b] + im[b] * im[b];
+      mags[b - minBin] = mag;
       if (mag > bestMag) { bestMag = mag; bestBin = b; }
     }
+    state.lastSpectrum = { mags: mags, fs: fs, n: N, loBin: minBin, hiBin: maxBin };
     if (bestMag < 1e-7) return null;
     return (bestBin * fs) / N;
   }
@@ -511,6 +526,7 @@
     var now = performance.now();
 
     var sym = computeFaceSymmetry(face);
+    latest.sym = sym;
     if (sym == null) H.setMetric(dom.n_facesym, '-');
     else {
       var symCls = sym >= 0.95 ? 'good' : (sym >= 0.88 ? 'warn' : 'bad');
@@ -518,6 +534,7 @@
     }
 
     var br = updateBlinkRate(face || [], now);
+    latest.blink = br;
     if (br == null) H.setMetric(dom.n_blink, '-');
     else {
       var brCls = (br >= 12 && br <= 25) ? 'good' : ((br >= 6 && br < 12) || (br > 25 && br <= 35) ? 'warn' : 'bad');
@@ -525,6 +542,7 @@
     }
 
     var sway = updatePosturalSway(pose, now);
+    latest.sway = sway;
     if (sway == null) H.setMetric(dom.n_sway, '-');
     else {
       var swCls = sway < 0.03 ? 'good' : (sway < 0.07 ? 'warn' : 'bad');
@@ -532,6 +550,7 @@
     }
 
     var ms = updateMotorSymmetry(jointAngles, now);
+    latest.motor = ms;
     if (ms == null) H.setMetric(dom.n_motorsym, '-');
     else {
       var msCls = ms < 10 ? 'good' : (ms < 25 ? 'warn' : 'bad');
@@ -546,6 +565,8 @@
     update: update,
     updateBehavior: updateBehavior,
     updateFace: updateFace,
+    getLatest: getLatest,
+    getSpectrum: getSpectrum,
     MP_MAP: MP_MAP
   };
 })();

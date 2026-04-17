@@ -186,6 +186,35 @@ button.toggle.on {
   margin-bottom: 6px;
   text-align: center;
 }
+.neuro-viz {
+  display: flex;
+  gap: 16px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.viz-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.viz-block.viz-spec { flex: 1 1 320px; min-width: 280px; }
+.viz-label {
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+#neuroRadar, #tremorSpectrogram {
+  background: rgba(5, 8, 16, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(127, 216, 255, 0.12);
+  border-radius: 8px;
+  display: block;
+  max-width: 100%;
+}
+#tremorSpectrogram { width: 100%; height: auto; image-rendering: pixelated; }
 footer {
   margin-top: auto;
   padding-top: 16px;

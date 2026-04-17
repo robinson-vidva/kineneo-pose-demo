@@ -27,6 +27,11 @@
 
   KN.neuro.bindDom();
   if (KN.spark) KN.spark.bind();
+  var radarCvs = document.getElementById('neuroRadar');
+  var specCvs = document.getElementById('tremorSpectrogram');
+  if (KN.viz && specCvs) KN.viz.initSpectrogram(specCvs);
+  var vizFrame = 0;
+  var lastSpecTs = 0;
 
   var currentStream = null;
   var facingMode = 'environment';
@@ -122,6 +127,24 @@
     try { await video.play(); } catch (e) {}
   }
 
+  function updateViz() {
+    vizFrame++;
+    if (!KN.viz) return;
+    // Radar at ~4 Hz (every 8th frame at 30 fps).
+    if (radarCvs && (vizFrame % 8) === 0) {
+      try { KN.viz.drawRadar(radarCvs, KN.neuro.getLatest()); }
+      catch (e) { console.error('[kineneo] drawRadar:', e); }
+    }
+    // Spectrogram column at ~10 Hz (every 3rd frame) so scroll is smooth but not jumpy.
+    if (specCvs && (vizFrame % 3) === 0) {
+      var spec = KN.neuro.getSpectrum();
+      if (spec) {
+        try { KN.viz.drawSpectrogramColumn(spec); }
+        catch (e) { console.error('[kineneo] drawSpectrogramColumn:', e); }
+      }
+    }
+  }
+
   function rafLoop() {
     if (!running) return;
     rafId = requestAnimationFrame(function () {
@@ -129,6 +152,7 @@
       KN.model.run(video, canvas, ctx).then(function (stats) {
         if (!running) return;
         try { updateMetrics(stats); } catch (e) { console.error('[kineneo] updateMetrics error:', e); }
+        try { updateViz(); } catch (e) { console.error('[kineneo] updateViz error:', e); }
         tickFps();
         rafLoop();
       }).catch(function (err) {
@@ -204,6 +228,7 @@
     running = false;
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     await stopCurrentStream();
+    if (KN.viz) KN.viz.clearSpectrogram();
     canvas.style.display = 'none';
     fpsEl.style.display = 'none';
     badge.style.display = 'none';
