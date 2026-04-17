@@ -199,6 +199,7 @@ button.toggle.on {
   gap: 4px;
 }
 .viz-block.viz-spec { flex: 1 1 320px; min-width: 280px; }
+.viz-block.hidden { display: none; }
 .viz-label {
   font-size: 10px;
   color: #888;

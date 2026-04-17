@@ -15,6 +15,10 @@
   var labelsBtn = document.getElementById('labelsBtn');
   var anglesBtn = document.getElementById('anglesBtn');
   var skeletonBtn = document.getElementById('skeletonBtn');
+  var radarBtn = document.getElementById('radarBtn');
+  var spectrogramBtn = document.getElementById('spectrogramBtn');
+  var radarBlock = document.getElementById('radarBlock');
+  var spectrogramBlock = document.getElementById('spectrogramBlock');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
@@ -130,13 +134,13 @@
   function updateViz() {
     vizFrame++;
     if (!KN.viz) return;
-    // Radar at ~4 Hz (every 8th frame at 30 fps).
-    if (radarCvs && (vizFrame % 8) === 0) {
+    // Radar at ~4 Hz (every 8th frame at 30 fps) - only when enabled.
+    if (KN.state.showRadar && radarCvs && (vizFrame % 8) === 0) {
       try { KN.viz.drawRadar(radarCvs, KN.neuro.getLatest()); }
       catch (e) { console.error('[kineneo] drawRadar:', e); }
     }
-    // Spectrogram column at ~10 Hz (every 3rd frame) so scroll is smooth but not jumpy.
-    if (specCvs && (vizFrame % 3) === 0) {
+    // Spectrogram column at ~10 Hz (every 3rd frame) - only when enabled.
+    if (KN.state.showSpectrogram && specCvs && (vizFrame % 3) === 0) {
       var spec = KN.neuro.getSpectrum();
       if (spec) {
         try { KN.viz.drawSpectrogramColumn(spec); }
@@ -215,6 +219,8 @@
     labelsBtn.disabled = false;
     anglesBtn.disabled = false;
     skeletonBtn.disabled = false;
+    radarBtn.disabled = false;
+    spectrogramBtn.disabled = false;
     startBtn.textContent = 'Stop';
     startBtn.disabled = false;
     running = true;
@@ -238,6 +244,8 @@
     labelsBtn.disabled = true;
     anglesBtn.disabled = true;
     skeletonBtn.disabled = true;
+    radarBtn.disabled = true;
+    spectrogramBtn.disabled = true;
     startBtn.textContent = 'Start Camera';
     startBtn.disabled = false;
     setStatus('');
@@ -280,6 +288,17 @@
   skeletonBtn.addEventListener('click', function () {
     KN.state.skeletonOnly = !KN.state.skeletonOnly;
     skeletonBtn.classList.toggle('on', KN.state.skeletonOnly);
+  });
+  radarBtn.addEventListener('click', function () {
+    KN.state.showRadar = !KN.state.showRadar;
+    radarBtn.classList.toggle('on', KN.state.showRadar);
+    radarBlock.classList.toggle('hidden', !KN.state.showRadar);
+  });
+  spectrogramBtn.addEventListener('click', function () {
+    KN.state.showSpectrogram = !KN.state.showSpectrogram;
+    spectrogramBtn.classList.toggle('on', KN.state.showSpectrogram);
+    spectrogramBlock.classList.toggle('hidden', !KN.state.showSpectrogram);
+    if (KN.state.showSpectrogram && KN.viz) KN.viz.clearSpectrogram();
   });
 
   function isFullscreen() {

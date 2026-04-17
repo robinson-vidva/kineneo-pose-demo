@@ -6,7 +6,9 @@
   KN.state = {
     showLabels: true,
     showAngles: true,
-    skeletonOnly: false
+    skeletonOnly: false,
+    showRadar: false,
+    showSpectrogram: false
   };
 
   KN.constants = {

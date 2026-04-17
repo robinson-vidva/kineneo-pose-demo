@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#1a1a1a" />
 <title>KineNeo - Pose Demo</title>
-<link rel="stylesheet" href="styles.css?v=24" />
+<link rel="stylesheet" href="styles.css?v=25" />
 </head>
 <body>
 <div class="app">
@@ -25,6 +25,8 @@
     <button id="labelsBtn" class="toggle on" type="button" disabled>Labels</button>
     <button id="anglesBtn" class="toggle on" type="button" disabled>Angles</button>
     <button id="skeletonBtn" class="toggle" type="button" disabled>Skeleton Only</button>
+    <button id="radarBtn" class="toggle" type="button" disabled>Radar</button>
+    <button id="spectrogramBtn" class="toggle" type="button" disabled>Spectrogram</button>
     <button id="fullscreenBtn" class="toggle" type="button">Fullscreen</button>
   </div>
 
@@ -72,18 +74,18 @@
       <div class="kv"><span class="k">Hypomimia</span><span class="v" id="n_hypo">-</span></div>
     </div>
     <div class="neuro-viz">
-      <div class="viz-block">
+      <div class="viz-block hidden" id="radarBlock">
         <div class="viz-label">Neuro Radar</div>
         <canvas id="neuroRadar" width="240" height="220"></canvas>
       </div>
-      <div class="viz-block viz-spec">
+      <div class="viz-block viz-spec hidden" id="spectrogramBlock">
         <div class="viz-label">Head Tremor Spectrogram &mdash; 0-15 Hz</div>
         <canvas id="tremorSpectrogram" width="520" height="100"></canvas>
       </div>
     </div>
   </div>
 
-  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v24</span></footer>
+  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v25</span></footer>
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
@@ -91,11 +93,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
 
-<script src="js/helpers.js?v=24"></script>
-<script src="js/spark.js?v=24"></script>
-<script src="js/viz.js?v=24"></script>
-<script src="js/neuro.js?v=24"></script>
-<script src="js/models.js?v=24"></script>
-<script src="js/app.js?v=24"></script>
+<script src="js/helpers.js?v=25"></script>
+<script src="js/spark.js?v=25"></script>
+<script src="js/viz.js?v=25"></script>
+<script src="js/neuro.js?v=25"></script>
+<script src="js/models.js?v=25"></script>
+<script src="js/app.js?v=25"></script>
 </body>
 </html>
