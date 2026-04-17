@@ -40,7 +40,9 @@ h1 {
   max-height: 82vh;
   object-fit: contain;
   background: #000;
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 216, 255, 0.1);
+  box-shadow: 0 0 40px rgba(127, 216, 255, 0.06);
 }
 @media (min-width: 900px) {
   .stage > canvas { max-height: 82vh; }
@@ -50,11 +52,14 @@ h1 {
   top: 8px;
   left: 8px;
   padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   color: #00FF88;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   pointer-events: none;
 }
 .tracking-badge {
@@ -62,10 +67,13 @@ h1 {
   top: 8px;
   right: 8px;
   padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   pointer-events: none;
 }
 .tracking-badge.tracking { color: #00FF88; }
@@ -78,14 +86,17 @@ h1 {
   justify-content: center;
 }
 button {
-  background: #2a2a2a;
+  background: rgba(42, 42, 42, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: #f0f0f0;
-  border: 1px solid #3a3a3a;
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
   padding: 9px 14px;
   font-size: 13px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
 }
 button:hover:not(:disabled) { background: #333; }
 button:active:not(:disabled) { background: #3a3a3a; }
@@ -98,9 +109,10 @@ button.primary {
 }
 button.primary:hover:not(:disabled) { background: #1aff97; }
 button.toggle.on {
-  background: #0a3a22;
+  background: rgba(10, 58, 34, 0.85);
   color: #00FF88;
-  border-color: #00FF88;
+  border-color: rgba(0, 255, 136, 0.5);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.12);
 }
 .status {
   margin-top: 10px;
@@ -114,13 +126,16 @@ button.toggle.on {
   width: 100%;
   max-width: 1500px;
   margin-top: 12px;
-  background: #0f0f0f;
-  border: 1px solid #262626;
-  border-radius: 8px;
+  background: rgba(15, 15, 15, 0.72);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
   padding: 12px 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   color: #cfcfcf;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 .panel.hidden { display: none; }
 .panel .section-title {
@@ -162,9 +177,11 @@ button.toggle.on {
 .neuro-disclaimer {
   font-size: 10px;
   color: #ff6b6b;
-  background: #2a0f0f;
-  border: 1px solid #3a1a1a;
-  border-radius: 4px;
+  background: rgba(42, 15, 15, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  border-radius: 6px;
   padding: 4px 8px;
   margin-bottom: 6px;
   text-align: center;

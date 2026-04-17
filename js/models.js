@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// models.js - MediaPipe Holistic model + canvas overlays.
+// models.js - MediaPipe Holistic model + velocity-gradient skeleton overlays.
 (function () {
   var KN = window.KN = window.KN || {};
   var H = KN.helpers;
@@ -14,19 +14,24 @@
   }
   function clearTrails() {
     Object.keys(trailHistory).forEach(function (k) { trailHistory[k].length = 0; });
+    prevLms = null;
+    for (var i = 0; i < 33; i++) velocities[i] = 0;
   }
   KN.clearTrails = clearTrails;
 
-  function drawTrails(cx, color) {
+  function drawTrails(cx) {
     Object.keys(trailHistory).forEach(function (k) {
       var arr = trailHistory[k];
       if (arr.length < 2) return;
       for (var i = 1; i < arr.length; i++) {
         var alpha = i / arr.length;
         cx.save();
-        cx.strokeStyle = color;
-        cx.globalAlpha = alpha * 0.6;
-        cx.lineWidth = 2 + alpha * 2;
+        cx.globalAlpha = alpha * 0.45;
+        cx.lineWidth = 1.5 + alpha * 1.5;
+        var grad = cx.createLinearGradient(arr[i - 1].x, arr[i - 1].y, arr[i].x, arr[i].y);
+        grad.addColorStop(0, 'rgba(127,216,255,0.3)');
+        grad.addColorStop(1, 'rgba(200,132,252,0.6)');
+        cx.strokeStyle = grad;
         cx.beginPath();
         cx.moveTo(arr[i - 1].x, arr[i - 1].y);
         cx.lineTo(arr[i].x, arr[i].y);
@@ -57,7 +62,7 @@
       var vR = R.visibility != null ? R.visibility : 1;
       if (vL < 0.5 || vR < 0.5) continue;
       cx.save();
-      cx.strokeStyle = 'rgba(0,255,136,0.15)';
+      cx.strokeStyle = 'rgba(0,255,136,0.12)';
       cx.lineWidth = 1;
       cx.setLineDash([3, 3]);
       cx.beginPath();
@@ -82,6 +87,90 @@
       cx_ = sx; cy_ = sy + 0.05;
     }
     drawGlowDot(cx, cx_ * w, cy_ * h, 7, color || '#ff6b6b');
+  }
+
+  // --- Velocity-gradient skeleton ---
+  var prevLms = null;
+  var velocities = new Array(33).fill(0);
+  var VEL_SMOOTH = 0.35;
+  var VEL_MIN = 0.002;
+  var VEL_MAX = 0.03;
+
+  var BODY_CONNECTIONS = [
+    [11,13],[13,15],[12,14],[14,16],
+    [11,12],[11,23],[12,24],[23,24],
+    [23,25],[25,27],[24,26],[26,28],
+    [15,17],[15,19],[15,21],[17,19],
+    [16,18],[16,20],[16,22],[18,20],
+    [27,29],[27,31],[29,31],
+    [28,30],[28,32],[30,32]
+  ];
+
+  function updateVelocities(lms) {
+    if (!prevLms) {
+      prevLms = [];
+      for (var k = 0; k < lms.length; k++) prevLms.push({ x: lms[k].x, y: lms[k].y });
+      return;
+    }
+    for (var i = 0; i < Math.min(lms.length, 33); i++) {
+      var dx = lms[i].x - prevLms[i].x;
+      var dy = lms[i].y - prevLms[i].y;
+      var v = Math.sqrt(dx * dx + dy * dy);
+      velocities[i] = velocities[i] * (1 - VEL_SMOOTH) + v * VEL_SMOOTH;
+      prevLms[i].x = lms[i].x;
+      prevLms[i].y = lms[i].y;
+    }
+  }
+
+  function velColor(vel) {
+    var t = Math.max(0, Math.min(1, (vel - VEL_MIN) / (VEL_MAX - VEL_MIN)));
+    var hue = 200 - t * 200;
+    var sat = 80 + t * 20;
+    var lum = 58 + t * 14;
+    return 'hsl(' + Math.round(hue) + ',' + Math.round(sat) + '%,' + Math.round(lum) + '%)';
+  }
+
+  function drawVelocitySkeleton(cx, lms, w, h) {
+    updateVelocities(lms);
+    cx.save();
+    cx.lineWidth = 3;
+    cx.lineCap = 'round';
+    for (var i = 0; i < BODY_CONNECTIONS.length; i++) {
+      var ai = BODY_CONNECTIONS[i][0], bi = BODY_CONNECTIONS[i][1];
+      var A = lms[ai], B = lms[bi];
+      if (!A || !B) continue;
+      var vA = A.visibility != null ? A.visibility : 1;
+      var vB = B.visibility != null ? B.visibility : 1;
+      if (vA < 0.3 || vB < 0.3) continue;
+      var ax = A.x * w, ay = A.y * h;
+      var bx = B.x * w, by = B.y * h;
+      var cA = velColor(velocities[ai]);
+      var cB = velColor(velocities[bi]);
+      var grad = cx.createLinearGradient(ax, ay, bx, by);
+      grad.addColorStop(0, cA);
+      grad.addColorStop(1, cB);
+      cx.strokeStyle = grad;
+      var avgVel = (velocities[ai] + velocities[bi]) / 2;
+      cx.shadowBlur = 10 + avgVel * 400;
+      cx.shadowColor = velColor(avgVel);
+      cx.beginPath();
+      cx.moveTo(ax, ay);
+      cx.lineTo(bx, by);
+      cx.stroke();
+    }
+    for (var j = 0; j < Math.min(lms.length, 33); j++) {
+      var p = lms[j];
+      if (!p || (p.visibility != null && p.visibility < 0.3)) continue;
+      var px = p.x * w, py = p.y * h;
+      var jc = velColor(velocities[j]);
+      cx.shadowBlur = 6;
+      cx.shadowColor = jc;
+      cx.fillStyle = '#FFF';
+      cx.beginPath();
+      cx.arc(px, py, 3, 0, 2 * Math.PI);
+      cx.fill();
+    }
+    cx.restore();
   }
 
   function computeAnglesMp(lms, ctx, w, h) {
@@ -157,21 +246,16 @@
               if (poseLms[27]) pushTrail('lAnkle', poseLms[27].x * w, poseLms[27].y * h);
               if (poseLms[28]) pushTrail('rAnkle', poseLms[28].x * w, poseLms[28].y * h);
               if (poseLms[0]) pushTrail('nose', poseLms[0].x * w, poseLms[0].y * h);
-              drawTrails(cx, '#7FD8FF');
+              drawTrails(cx);
               if (faceLms && faceLms.length && window.drawConnectors && window.FACEMESH_TESSELATION)
-                window.drawConnectors(cx, faceLms, window.FACEMESH_TESSELATION, { color: 'rgba(127,216,255,0.15)', lineWidth: 0.5 });
-              cx.save(); cx.shadowBlur = 8; cx.shadowColor = '#7FD8FF';
-              if (window.drawConnectors && window.POSE_CONNECTIONS)
-                window.drawConnectors(cx, poseLms, window.POSE_CONNECTIONS, { color: '#7FD8FF', lineWidth: 2 });
-              if (window.drawLandmarks)
-                window.drawLandmarks(cx, poseLms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 3 });
-              cx.restore();
+                window.drawConnectors(cx, faceLms, window.FACEMESH_TESSELATION, { color: 'rgba(127,216,255,0.12)', lineWidth: 0.5 });
+              drawVelocitySkeleton(cx, poseLms, w, h);
               if (lhLms && lhLms.length && window.HAND_CONNECTIONS) {
-                window.drawConnectors(cx, lhLms, window.HAND_CONNECTIONS, { color: '#5BC0EB', lineWidth: 1.5 });
+                window.drawConnectors(cx, lhLms, window.HAND_CONNECTIONS, { color: '#C084FC', lineWidth: 1.5 });
                 window.drawLandmarks(cx, lhLms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 2 });
               }
               if (rhLms && rhLms.length && window.HAND_CONNECTIONS) {
-                window.drawConnectors(cx, rhLms, window.HAND_CONNECTIONS, { color: '#5BC0EB', lineWidth: 1.5 });
+                window.drawConnectors(cx, rhLms, window.HAND_CONNECTIONS, { color: '#C084FC', lineWidth: 1.5 });
                 window.drawLandmarks(cx, rhLms, { color: '#FFF', fillColor: '#FFF', lineWidth: 1, radius: 2 });
               }
               drawCenterOfMass(cx, poseLms, w, h, '#ff6b6b');
