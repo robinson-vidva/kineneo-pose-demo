@@ -3,7 +3,7 @@
 (function () {
   var KN = window.KN = window.KN || {};
 
-  var TASKS_VERSION = '0.10.21';
+  var TASKS_VERSION = '0.10.34';
   // Multiple CDN fallbacks. jsdelivr's package-root URL lets it resolve
   // `exports.default` -> vision_bundle.mjs. unpkg is a second choice if jsdelivr
   // is slow or unreachable.
@@ -78,6 +78,26 @@
     return filesetPromise;
   }
 
+  function createWithFallback(ctx, TaskClass, options, label, progress) {
+    var gpuOpts = JSON.parse(JSON.stringify(options));
+    gpuOpts.baseOptions.delegate = 'GPU';
+    return withTimeout(
+      TaskClass.createFromOptions(ctx.fileset, gpuOpts),
+      MODEL_TIMEOUT_MS,
+      label + ' (GPU)'
+    ).catch(function (err) {
+      console.warn('[kineneo] ' + label + ' GPU init failed, retrying on CPU:', err && err.message ? err.message : err);
+      progress('Retrying ' + label + ' on CPU...');
+      var cpuOpts = JSON.parse(JSON.stringify(options));
+      cpuOpts.baseOptions.delegate = 'CPU';
+      return withTimeout(
+        TaskClass.createFromOptions(ctx.fileset, cpuOpts),
+        MODEL_TIMEOUT_MS,
+        label + ' (CPU)'
+      );
+    });
+  }
+
   function initFaceLandmarker(onProgress) {
     if (faceLandmarker) return Promise.resolve();
     var progress = onProgress || function () {};
@@ -87,20 +107,13 @@
       return getFileset();
     }).then(function (ctx) {
       progress('Downloading Face Landmarker model (~3 MB)...');
-      return withTimeout(
-        ctx.mod.FaceLandmarker.createFromOptions(ctx.fileset, {
-          baseOptions: {
-            modelAssetPath: FACE_MODEL,
-            delegate: 'GPU'
-          },
-          runningMode: 'VIDEO',
-          outputFaceBlendshapes: true,
-          outputFacialTransformationMatrixes: false,
-          numFaces: 1
-        }),
-        MODEL_TIMEOUT_MS,
-        'FaceLandmarker.createFromOptions'
-      );
+      return createWithFallback(ctx, ctx.mod.FaceLandmarker, {
+        baseOptions: { modelAssetPath: FACE_MODEL },
+        runningMode: 'VIDEO',
+        outputFaceBlendshapes: true,
+        outputFacialTransformationMatrixes: false,
+        numFaces: 1
+      }, 'FaceLandmarker', progress);
     }).then(function (lm) {
       faceLandmarker = lm;
       console.log('[kineneo] FaceLandmarker ready');
@@ -119,18 +132,11 @@
       return getFileset();
     }).then(function (ctx) {
       progress('Downloading Gesture Recognizer model (~8 MB)...');
-      return withTimeout(
-        ctx.mod.GestureRecognizer.createFromOptions(ctx.fileset, {
-          baseOptions: {
-            modelAssetPath: GESTURE_MODEL,
-            delegate: 'GPU'
-          },
-          runningMode: 'VIDEO',
-          numHands: 2
-        }),
-        MODEL_TIMEOUT_MS,
-        'GestureRecognizer.createFromOptions'
-      );
+      return createWithFallback(ctx, ctx.mod.GestureRecognizer, {
+        baseOptions: { modelAssetPath: GESTURE_MODEL },
+        runningMode: 'VIDEO',
+        numHands: 2
+      }, 'GestureRecognizer', progress);
     }).then(function (gr) {
       gestureRecognizer = gr;
       console.log('[kineneo] GestureRecognizer ready');
