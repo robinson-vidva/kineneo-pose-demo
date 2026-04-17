@@ -15,15 +15,10 @@
   var labelsBtn = document.getElementById('labelsBtn');
   var anglesBtn = document.getElementById('anglesBtn');
   var bgBtn = document.getElementById('bgBtn');
-  var blendBtn = document.getElementById('blendBtn');
-  var gestureBtn = document.getElementById('gestureBtn');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
   var panel = document.getElementById('panel');
-  var blendTitle = document.getElementById('blendTitle');
-  var bsGrid = document.getElementById('bsGrid');
-  var gestureWidget = document.getElementById('gestureWidget');
 
   var m_status = document.getElementById('m_status');
   var m_persons = document.getElementById('m_persons');
@@ -41,82 +36,6 @@
   var frameCount = 0;
   var lastFpsUpdate = performance.now();
 
-  // --- Blend shapes UI ---
-  // Subset most relevant for neuroscience / facial expression work.
-  var BLEND_KEYS = [
-    'eyeBlinkLeft', 'eyeBlinkRight',
-    'browInnerUp', 'browDownLeft', 'browDownRight',
-    'browOuterUpLeft', 'browOuterUpRight',
-    'mouthSmileLeft', 'mouthSmileRight',
-    'mouthFrownLeft', 'mouthFrownRight',
-    'mouthPucker', 'jawOpen',
-    'cheekPuff', 'cheekSquintLeft', 'cheekSquintRight',
-    'noseSneerLeft', 'noseSneerRight'
-  ];
-  var bsRows = {};
-
-  function buildBlendShapeRows() {
-    if (Object.keys(bsRows).length) return;
-    for (var i = 0; i < BLEND_KEYS.length; i++) {
-      var key = BLEND_KEYS[i];
-      var row = document.createElement('div');
-      row.className = 'bs-row';
-      row.innerHTML =
-        '<span class="bs-label">' + key + '</span>' +
-        '<span class="bs-bar"><span class="bs-fill" style="width:0%"></span></span>' +
-        '<span class="bs-val">0.00</span>';
-      bsGrid.appendChild(row);
-      bsRows[key] = {
-        fill: row.querySelector('.bs-fill'),
-        val: row.querySelector('.bs-val')
-      };
-    }
-  }
-
-  function updateBlendShapes(categories) {
-    if (!categories) return;
-    var map = {};
-    for (var i = 0; i < categories.length; i++) map[categories[i].categoryName] = categories[i].score;
-    for (var j = 0; j < BLEND_KEYS.length; j++) {
-      var k = BLEND_KEYS[j];
-      var s = map[k] || 0;
-      var row = bsRows[k];
-      if (!row) continue;
-      row.fill.style.width = (s * 100).toFixed(1) + '%';
-      row.val.textContent = s.toFixed(2);
-    }
-  }
-
-  function clearBlendShapes() {
-    for (var k in bsRows) {
-      if (!bsRows.hasOwnProperty(k)) continue;
-      bsRows[k].fill.style.width = '0%';
-      bsRows[k].val.textContent = '0.00';
-    }
-  }
-
-  // --- Gesture widget ---
-  function updateGesture(result) {
-    if (!result) { gestureWidget.style.display = 'none'; return; }
-    var gestures = result.gestures || [];
-    var handedness = result.handednesses || [];
-    if (!gestures.length) { gestureWidget.style.display = 'none'; return; }
-    var parts = [];
-    for (var i = 0; i < gestures.length; i++) {
-      var g = gestures[i] && gestures[i][0];
-      if (!g || g.categoryName === 'None') continue;
-      var handLabel = (handedness[i] && handedness[i][0] && handedness[i][0].displayName) || ('H' + (i + 1));
-      parts.push(
-        '<span class="ghand">' + handLabel + '</span>' +
-        '<span class="gname">' + g.categoryName + '</span>' +
-        '<span class="gscore">' + (g.score * 100).toFixed(0) + '%</span>'
-      );
-    }
-    if (!parts.length) { gestureWidget.style.display = 'none'; return; }
-    gestureWidget.innerHTML = parts.join(' &nbsp; ');
-    gestureWidget.style.display = 'block';
-  }
-
   function setStatus(msg, isError) {
     statusEl.textContent = msg || '';
     statusEl.classList.toggle('error', !!isError);
@@ -132,7 +51,6 @@
     badge.classList.remove('tracking');
     badge.classList.add('lost');
     KN.neuro.clearPanel();
-    clearBlendShapes();
   }
 
   function updateMetrics(stats) {
@@ -204,20 +122,6 @@
     try { await video.play(); } catch (e) {}
   }
 
-  function runTasks() {
-    var ts = performance.now();
-    if (KN.state.blendShapesEnabled && KN.tasks) {
-      var fr = KN.tasks.detectFace(video, ts);
-      if (fr && fr.faceBlendshapes && fr.faceBlendshapes[0]) {
-        updateBlendShapes(fr.faceBlendshapes[0].categories);
-      }
-    }
-    if (KN.state.gesturesEnabled && KN.tasks) {
-      var gr = KN.tasks.detectGesture(video, ts);
-      updateGesture(gr);
-    }
-  }
-
   function rafLoop() {
     if (!running) return;
     rafId = requestAnimationFrame(function () {
@@ -225,7 +129,6 @@
       KN.model.run(video, canvas, ctx).then(function (stats) {
         if (!running) return;
         try { updateMetrics(stats); } catch (e) { console.error('[kineneo] updateMetrics error:', e); }
-        try { runTasks(); } catch (e) { console.error('[kineneo] runTasks error:', e); }
         tickFps();
         rafLoop();
       }).catch(function (err) {
@@ -288,8 +191,6 @@
     labelsBtn.disabled = false;
     anglesBtn.disabled = false;
     bgBtn.disabled = false;
-    blendBtn.disabled = false;
-    gestureBtn.disabled = false;
     startBtn.textContent = 'Stop';
     startBtn.disabled = false;
     running = true;
@@ -306,15 +207,12 @@
     canvas.style.display = 'none';
     fpsEl.style.display = 'none';
     badge.style.display = 'none';
-    gestureWidget.style.display = 'none';
     panel.classList.add('hidden');
     placeholder.style.display = 'flex';
     flipBtn.disabled = true;
     labelsBtn.disabled = true;
     anglesBtn.disabled = true;
     bgBtn.disabled = true;
-    blendBtn.disabled = true;
-    gestureBtn.disabled = true;
     startBtn.textContent = 'Start Camera';
     startBtn.disabled = false;
     setStatus('');
@@ -343,7 +241,7 @@
     }
   }
 
-  // --- Background cycling ---
+  // --- Background cycling: Normal -> Blur -> Cutout -> Skeleton ---
   var BG_ORDER = ['normal', 'blur', 'cutout', 'skeleton'];
   var BG_LABEL = { normal: 'Bg: Normal', blur: 'Bg: Blur', cutout: 'Bg: Cutout', skeleton: 'Bg: Skeleton' };
   function cycleBackground() {
@@ -352,53 +250,6 @@
     KN.state.backgroundMode = next;
     bgBtn.textContent = BG_LABEL[next];
     bgBtn.classList.toggle('on', next !== 'normal');
-  }
-
-  // --- Blend shapes toggle ---
-  async function toggleBlendShapes() {
-    if (KN.state.blendShapesEnabled) {
-      KN.state.blendShapesEnabled = false;
-      blendBtn.classList.remove('on');
-      blendTitle.classList.add('hidden');
-      bsGrid.classList.add('hidden');
-      clearBlendShapes();
-      return;
-    }
-    blendBtn.disabled = true;
-    try {
-      await KN.tasks.initFaceLandmarker(function (msg) { setStatus(msg); });
-      KN.state.blendShapesEnabled = true;
-      blendBtn.classList.add('on');
-      buildBlendShapeRows();
-      blendTitle.classList.remove('hidden');
-      bsGrid.classList.remove('hidden');
-      setStatus('');
-    } catch (err) {
-      setStatus('Failed to load Face Landmarker: ' + (err && err.message ? err.message : 'unknown error'), true);
-    } finally {
-      blendBtn.disabled = false;
-    }
-  }
-
-  // --- Gestures toggle ---
-  async function toggleGestures() {
-    if (KN.state.gesturesEnabled) {
-      KN.state.gesturesEnabled = false;
-      gestureBtn.classList.remove('on');
-      gestureWidget.style.display = 'none';
-      return;
-    }
-    gestureBtn.disabled = true;
-    try {
-      await KN.tasks.initGestureRecognizer(function (msg) { setStatus(msg); });
-      KN.state.gesturesEnabled = true;
-      gestureBtn.classList.add('on');
-      setStatus('');
-    } catch (err) {
-      setStatus('Failed to load Gesture Recognizer: ' + (err && err.message ? err.message : 'unknown error'), true);
-    } finally {
-      gestureBtn.disabled = false;
-    }
   }
 
   startBtn.addEventListener('click', function () { if (running) stop(); else start(); });
@@ -412,8 +263,6 @@
     anglesBtn.classList.toggle('on', KN.state.showAngles);
   });
   bgBtn.addEventListener('click', cycleBackground);
-  blendBtn.addEventListener('click', toggleBlendShapes);
-  gestureBtn.addEventListener('click', toggleGestures);
 
   function isFullscreen() {
     return !!(document.fullscreenElement || document.webkitFullscreenElement);
