@@ -78,11 +78,53 @@
     return filesetPromise;
   }
 
+  // Holistic's Emscripten runtime leaves globals like `Module` and
+  // `tflite_web_api` on window with deprecation-warning getters. When the
+  // Tasks API's WASM glue later reads window.Module.noExitRuntime, Holistic's
+  // getter fires and aborts. Temporarily clearing these globals lets Tasks
+  // spin up its own independent runtime, then we restore so Holistic's next
+  // inference call still works.
+  var SHARED_GLOBALS = ['Module', 'tflite_web_api', 'ENVIRONMENT_IS_NODE', 'ENVIRONMENT_IS_WEB'];
+
+  function saveAndClearGlobals() {
+    var saved = {};
+    for (var i = 0; i < SHARED_GLOBALS.length; i++) {
+      var k = SHARED_GLOBALS[i];
+      if (k in window) {
+        saved[k] = window[k];
+        try { delete window[k]; } catch (e) { try { window[k] = undefined; } catch (e2) {} }
+      }
+    }
+    return saved;
+  }
+
+  function restoreGlobals(saved) {
+    for (var k in saved) {
+      if (saved.hasOwnProperty(k)) {
+        try { window[k] = saved[k]; } catch (e) {}
+      }
+    }
+  }
+
+  function isolated(fn) {
+    var saved = saveAndClearGlobals();
+    var result;
+    try { result = fn(); } catch (e) { restoreGlobals(saved); throw e; }
+    if (result && typeof result.then === 'function') {
+      return result.then(
+        function (v) { restoreGlobals(saved); return v; },
+        function (e) { restoreGlobals(saved); throw e; }
+      );
+    }
+    restoreGlobals(saved);
+    return result;
+  }
+
   function createWithFallback(ctx, TaskClass, options, label, progress) {
     var gpuOpts = JSON.parse(JSON.stringify(options));
     gpuOpts.baseOptions.delegate = 'GPU';
     return withTimeout(
-      TaskClass.createFromOptions(ctx.fileset, gpuOpts),
+      isolated(function () { return TaskClass.createFromOptions(ctx.fileset, gpuOpts); }),
       MODEL_TIMEOUT_MS,
       label + ' (GPU)'
     ).catch(function (err) {
@@ -91,7 +133,7 @@
       var cpuOpts = JSON.parse(JSON.stringify(options));
       cpuOpts.baseOptions.delegate = 'CPU';
       return withTimeout(
-        TaskClass.createFromOptions(ctx.fileset, cpuOpts),
+        isolated(function () { return TaskClass.createFromOptions(ctx.fileset, cpuOpts); }),
         MODEL_TIMEOUT_MS,
         label + ' (CPU)'
       );
