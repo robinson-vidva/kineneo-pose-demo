@@ -107,12 +107,18 @@
       if (!detector || vid.readyState < 2) return Promise.resolve(null);
       var w = vid.videoWidth, h = vid.videoHeight;
       H.ensureCanvasSize(cvs, w, h);
-      return detector.detect(vid).then(function (preds) {
+      return detector.detect(vid).then(function (rawPreds) {
+        var preds = [];
+        if (rawPreds) {
+          for (var k = 0; k < rawPreds.length; k++) {
+            if (rawPreds[k].class !== 'person') preds.push(rawPreds[k]);
+          }
+        }
         cx.save();
         cx.clearRect(0, 0, w, h);
         if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
         else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
-        if (preds && preds.length) {
+        if (preds.length) {
           drawDetections(cx, preds, w, h);
           var confSum = 0;
           for (var i = 0; i < preds.length; i++) confSum += preds[i].score;
