@@ -21,12 +21,18 @@ clinician.
 
 ## What it does
 
-A single HTML page that opens the camera and runs **MediaPipe Holistic** in real
-time, with on-canvas overlays and a live metrics panel.
+A single HTML page that opens the camera and runs one of two modes in real
+time, with on-canvas overlays and a live metrics panel. Switch between modes
+at any time, even while the camera is running.
 
-### Model
+### Modes
 
-- **MediaPipe Holistic** - 1 person, 33 body + 21 + 21 hand + 468 face landmarks
+- **Pose** (default) — **MediaPipe Holistic**: 1 person, 33 body + 21 + 21 hand
+  + 468 face landmarks. Full skeleton with velocity-gradient coloring, joint
+  angles, behavior classification, and Neuro Screen metrics.
+- **Objects** — **COCO-SSD**: detects 80 everyday object classes (chair, cup,
+  phone, dog, car, etc.) with bounding boxes and confidence scores. TF.js is
+  loaded on-demand the first time you enter Objects mode.
 
 ### Canvas overlays
 
@@ -96,12 +102,13 @@ at runtime.
 
 ```
 index.html       HTML shell + CDN script tags + local script tags
-styles.css       All styles (dark theme, panel, sparklines, controls)
+styles.css       All styles (dark theme, glassmorphism, sparklines, controls)
 js/helpers.js    Shared state, drawing utilities, landmark/model constants
-js/spark.js     Auto-injected inline sparkline canvases
+js/spark.js      Auto-injected inline sparkline canvases
 js/neuro.js      Behavior + Neuro Screen metric calculations
-js/models.js     MediaPipe Holistic model + canvas overlays
-js/app.js        DOM bindings, rAF loop, camera lifecycle, event listeners
+js/models.js     MediaPipe Holistic model + velocity-gradient skeleton overlays
+js/objects.js    COCO-SSD object detection with dynamic TF.js loading
+js/app.js        DOM bindings, rAF loop, camera lifecycle, mode switching
 ```
 
 All files attach to a shared `window.KN` namespace so they can see each other
@@ -198,8 +205,8 @@ or neuro layers if anything goes wrong silently.
 
 ## Trademarks
 
-MediaPipe and Google are trademarks of Google LLC. This project is not
-affiliated with, endorsed by, or sponsored by Google.
+MediaPipe, TensorFlow, and Google are trademarks of Google LLC. This project
+is not affiliated with, endorsed by, or sponsored by Google.
 
 ## License
 

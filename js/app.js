@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// app.js - DOM bindings, rAF loop, camera lifecycle, and event listeners (Holistic only).
+// app.js - DOM bindings, rAF loop, camera lifecycle, mode switching (Pose / Objects).
 (function () {
   var KN = window.KN = window.KN || {};
   var H = KN.helpers;
@@ -18,12 +18,20 @@
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
-  var panel = document.getElementById('panel');
+  var posePanel = document.getElementById('panel');
+  var objectsPanel = document.getElementById('objectsPanel');
+  var modePoseBtn = document.getElementById('mode_pose');
+  var modeObjectsBtn = document.getElementById('mode_objects');
 
   var m_status = document.getElementById('m_status');
   var m_persons = document.getElementById('m_persons');
   var m_visible = document.getElementById('m_visible');
   var m_conf = document.getElementById('m_conf');
+
+  var o_status = document.getElementById('o_status');
+  var o_count = document.getElementById('o_count');
+  var o_conf = document.getElementById('o_conf');
+  var objList = document.getElementById('objList');
 
   KN.neuro.bindDom();
   if (KN.spark) KN.spark.bind();
@@ -31,17 +39,23 @@
   var currentStream = null;
   var facingMode = 'environment';
   var running = false;
-  var modelReady = false;
+  var poseReady = false;
+  var objectsReady = false;
+  var mode = 'pose';
   var rafId = null;
   var frameCount = 0;
   var lastFpsUpdate = performance.now();
+
+  function activeModel() {
+    return mode === 'pose' ? KN.model : KN.objects;
+  }
 
   function setStatus(msg, isError) {
     statusEl.textContent = msg || '';
     statusEl.classList.toggle('error', !!isError);
   }
 
-  function clearPanel() {
+  function clearPosePanel() {
     H.setMetric(m_status, 'NO POSE', 'bad');
     H.setMetric(m_persons, '-');
     H.setMetric(m_visible, '- / ' + C.HOLISTIC_TOTAL);
@@ -53,8 +67,40 @@
     KN.neuro.clearPanel();
   }
 
-  function updateMetrics(stats) {
-    if (!stats || !stats.tracking) { clearPanel(); return; }
+  function clearObjectsPanel() {
+    H.setMetric(o_status, 'NO OBJECTS', 'bad');
+    H.setMetric(o_count, '-');
+    H.setMetric(o_conf, '-');
+    objList.textContent = 'No objects detected.';
+    badge.textContent = 'NO OBJECTS';
+    badge.classList.remove('tracking');
+    badge.classList.add('lost');
+  }
+
+  function classHue(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+    return h % 360;
+  }
+
+  function buildObjList(preds) {
+    objList.innerHTML = '';
+    for (var i = 0; i < preds.length; i++) {
+      var p = preds[i];
+      var row = document.createElement('div');
+      row.className = 'obj-item';
+      var hue = classHue(p.class);
+      row.innerHTML =
+        '<span class="obj-swatch" style="background:hsl(' + hue + ',85%,60%)"></span>' +
+        '<span class="obj-class">' + p.class + '</span>' +
+        '<span class="obj-score">' + (p.score * 100).toFixed(0) + '%</span>';
+      objList.appendChild(row);
+    }
+    if (!preds.length) objList.textContent = 'No objects detected.';
+  }
+
+  function updatePoseMetrics(stats) {
+    if (!stats || !stats.tracking) { clearPosePanel(); return; }
     H.setMetric(m_status, 'TRACKING', 'good');
     badge.textContent = 'TRACKING';
     badge.classList.add('tracking');
@@ -75,6 +121,29 @@
       if (v == null) H.setMetric(el, '-');
       else H.setMetric(el, v.toFixed(1) + ' deg');
     }
+  }
+
+  function updateObjectsMetrics(stats) {
+    if (!stats || !stats.tracking) { clearObjectsPanel(); return; }
+    H.setMetric(o_status, 'DETECTING', 'good');
+    badge.textContent = 'DETECTING';
+    badge.classList.add('tracking');
+    badge.classList.remove('lost');
+    var cnt = stats.objectCount;
+    H.setMetric(o_count, String(cnt), cnt > 0 ? 'good' : 'bad');
+    var mc = stats.meanConfidence;
+    if (mc != null) {
+      var confCls = mc >= 0.75 ? 'good' : (mc >= 0.5 ? 'warn' : 'bad');
+      H.setMetric(o_conf, (mc * 100).toFixed(0) + '%', confCls);
+    } else {
+      H.setMetric(o_conf, '-');
+    }
+    buildObjList(stats.predictions || []);
+  }
+
+  function updateMetrics(stats) {
+    if (mode === 'pose') updatePoseMetrics(stats);
+    else updateObjectsMetrics(stats);
   }
 
   function tickFps() {
@@ -126,7 +195,7 @@
     if (!running) return;
     rafId = requestAnimationFrame(function () {
       if (!running) return;
-      KN.model.run(video, canvas, ctx).then(function (stats) {
+      activeModel().run(video, canvas, ctx).then(function (stats) {
         if (!running) return;
         try { updateMetrics(stats); } catch (e) { console.error('[kineneo] updateMetrics error:', e); }
         tickFps();
@@ -154,6 +223,29 @@
     }
   }
 
+  function syncModeUI() {
+    modePoseBtn.classList.toggle('on', mode === 'pose');
+    modeObjectsBtn.classList.toggle('on', mode === 'objects');
+    labelsBtn.style.display = mode === 'pose' ? '' : 'none';
+    anglesBtn.style.display = mode === 'pose' ? '' : 'none';
+    if (running) {
+      posePanel.classList.toggle('hidden', mode !== 'pose');
+      objectsPanel.classList.toggle('hidden', mode !== 'objects');
+    }
+  }
+
+  async function initActiveModel() {
+    if (mode === 'pose' && !poseReady) {
+      setStatus('Loading MediaPipe Holistic...');
+      await KN.model.init();
+      poseReady = true;
+    } else if (mode === 'objects' && !objectsReady) {
+      setStatus('Loading COCO-SSD (first time may take a moment)...');
+      await KN.objects.init();
+      objectsReady = true;
+    }
+  }
+
   async function start() {
     if (running) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -164,17 +256,13 @@
     setStatus('Requesting camera access...');
     try {
       await startStream();
-      if (!modelReady) {
-        setStatus('Loading MediaPipe Holistic...');
-        await KN.model.init();
-        modelReady = true;
-      }
+      await initActiveModel();
       H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
       placeholder.style.display = 'none';
       canvas.style.display = 'block';
       fpsEl.style.display = 'block';
       badge.style.display = 'block';
-      panel.classList.remove('hidden');
+      syncModeUI();
       flipBtn.disabled = false;
       labelsBtn.disabled = false;
       anglesBtn.disabled = false;
@@ -182,7 +270,8 @@
       startBtn.textContent = 'Stop';
       startBtn.disabled = false;
       running = true;
-      clearPanel();
+      if (mode === 'pose') clearPosePanel();
+      else clearObjectsPanel();
       setStatus('');
       frameCount = 0; lastFpsUpdate = performance.now();
       rafLoop();
@@ -198,7 +287,8 @@
     canvas.style.display = 'none';
     fpsEl.style.display = 'none';
     badge.style.display = 'none';
-    panel.classList.add('hidden');
+    posePanel.classList.add('hidden');
+    objectsPanel.classList.add('hidden');
     placeholder.style.display = 'flex';
     flipBtn.disabled = true;
     labelsBtn.disabled = true;
@@ -207,6 +297,29 @@
     startBtn.textContent = 'Start Camera';
     startBtn.disabled = false;
     setStatus('');
+  }
+
+  async function switchMode(newMode) {
+    if (newMode === mode) return;
+    mode = newMode;
+    syncModeUI();
+    if (!running) return;
+    running = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    try {
+      await initActiveModel();
+      if (KN.clearTrails) KN.clearTrails();
+      if (KN.spark) KN.spark.clearAll();
+      KN.neuro.resetState();
+      running = true;
+      if (mode === 'pose') clearPosePanel();
+      else clearObjectsPanel();
+      setStatus('');
+      frameCount = 0; lastFpsUpdate = performance.now();
+      rafLoop();
+    } catch (err) {
+      setStatus('Failed to load model: ' + (err && err.message ? err.message : 'unknown'), true);
+    }
   }
 
   async function flip() {
@@ -234,6 +347,8 @@
 
   startBtn.addEventListener('click', function () { if (running) stop(); else start(); });
   flipBtn.addEventListener('click', flip);
+  modePoseBtn.addEventListener('click', function () { switchMode('pose'); });
+  modeObjectsBtn.addEventListener('click', function () { switchMode('objects'); });
   labelsBtn.addEventListener('click', function () {
     KN.state.showLabels = !KN.state.showLabels;
     labelsBtn.classList.toggle('on', KN.state.showLabels);
@@ -270,5 +385,6 @@
   document.addEventListener('fullscreenchange', syncFsBtn);
   document.addEventListener('webkitfullscreenchange', syncFsBtn);
 
+  syncModeUI();
   window.addEventListener('pagehide', function () { stop(); });
 })();
