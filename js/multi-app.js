@@ -159,11 +159,11 @@
     setStatus('Requesting camera access...');
     try { await startStream(); } catch (err) { handleCameraError(err); return; }
     if (!modelReady) {
-      setStatus('Loading MoveNet MultiPose...');
-      try { await KN.multiModel.init(); modelReady = true; }
+      setStatus('Loading PoseLandmarker...');
+      try { await KN.multiModel.init(function (msg) { setStatus(msg); }); modelReady = true; }
       catch (err) {
         console.error('[kineneo-multi] model init failed:', err);
-        setStatus('Failed to load MoveNet: ' + (err && err.message ? err.message : 'unknown'), true);
+        setStatus('Failed to load PoseLandmarker: ' + (err && err.message ? err.message : 'unknown'), true);
         startBtn.disabled = false;
         await stopCurrentStream();
         return;

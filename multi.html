@@ -13,7 +13,7 @@
   <h1>KineNeo - Multi-Person</h1>
   <div class="mode-nav">
     <a href="index.html">Single Person (Holistic)</a>
-    <span class="mode-nav-active">Multi-Person (MoveNet)</span>
+    <span class="mode-nav-active">Multi-Person (Tasks API)</span>
   </div>
 
   <div class="stage" id="stage">
@@ -68,7 +68,7 @@
       <div class="kv"><span class="k">Persons</span><span class="v" id="m_persons">-</span></div>
       <div class="kv"><span class="k">Landmarks visible</span><span class="v" id="m_visible">-</span></div>
       <div class="kv"><span class="k">Mean confidence</span><span class="v" id="m_conf">-</span></div>
-      <div class="kv"><span class="k">Model</span><span class="v" id="m_model">MoveNet MultiPose</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v" id="m_model">PoseLandmarker (Tasks API)</span></div>
     </div>
     <div class="section-title">Joint Angles (deg) — best person</div>
     <div class="kv-grid">
@@ -87,11 +87,6 @@
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.15.0/dist/tf-core.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.15.0/dist/tf-converter.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.15.0/dist/tf-backend-webgl.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script src="js/helpers.js?v=30"></script>
 <script src="js/multi-models.js?v=30"></script>
