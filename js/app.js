@@ -285,9 +285,20 @@
     KN.state.showAngles = !KN.state.showAngles;
     anglesBtn.classList.toggle('on', KN.state.showAngles);
   });
+  var SK_MODES = [
+    { skel: false, bg: 'none',   label: 'Skeleton Off' },
+    { skel: true,  bg: 'none',   label: 'Skeleton' },
+    { skel: true,  bg: 'grid',   label: 'Skel: Grid' },
+    { skel: true,  bg: 'neural', label: 'Skel: Neural' }
+  ];
+  var skModeIdx = 0;
   skeletonBtn.addEventListener('click', function () {
-    KN.state.skeletonOnly = !KN.state.skeletonOnly;
-    skeletonBtn.classList.toggle('on', KN.state.skeletonOnly);
+    skModeIdx = (skModeIdx + 1) % SK_MODES.length;
+    var m = SK_MODES[skModeIdx];
+    KN.state.skeletonOnly = m.skel;
+    KN.state.skeletonBg = m.bg;
+    skeletonBtn.textContent = m.label;
+    skeletonBtn.classList.toggle('on', m.skel);
   });
   radarBtn.addEventListener('click', function () {
     KN.state.showRadar = !KN.state.showRadar;

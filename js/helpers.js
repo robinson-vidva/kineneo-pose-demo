@@ -7,6 +7,7 @@
     showLabels: true,
     showAngles: true,
     skeletonOnly: false,
+    skeletonBg: 'none',
     showRadar: false,
     showSpectrogram: false
   };

@@ -290,6 +290,122 @@
     }
   }
 
+  // --- Skeleton-mode backgrounds ---
+  var neuralNodes = null;
+
+  function initNeuralNodes(w, h) {
+    var nodes = [];
+    for (var i = 0; i < 60; i++) {
+      nodes.push({
+        x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+        r: 2 + Math.random() * 2, pulse: Math.random() * Math.PI * 2
+      });
+    }
+    return nodes;
+  }
+
+  function drawGridRoom(cx, w, h) {
+    cx.save();
+    var horizon = h * 0.38;
+    var vanishX = w / 2;
+    // Ceiling gradient
+    var topGrad = cx.createLinearGradient(0, 0, 0, horizon);
+    topGrad.addColorStop(0, 'rgba(8,12,24,1)');
+    topGrad.addColorStop(1, 'rgba(5,8,16,1)');
+    cx.fillStyle = topGrad;
+    cx.fillRect(0, 0, w, horizon);
+    // Floor gradient
+    var floorGrad = cx.createLinearGradient(0, horizon, 0, h);
+    floorGrad.addColorStop(0, 'rgba(5,8,16,1)');
+    floorGrad.addColorStop(1, 'rgba(10,14,28,1)');
+    cx.fillStyle = floorGrad;
+    cx.fillRect(0, horizon, w, h - horizon);
+
+    cx.strokeStyle = 'rgba(0,255,136,0.08)';
+    cx.lineWidth = 1;
+    // Floor grid lines (perspective)
+    var cols = 20;
+    for (var i = -cols; i <= cols; i++) {
+      var bx = vanishX + i * (w / cols) * 1.8;
+      cx.beginPath(); cx.moveTo(vanishX, horizon); cx.lineTo(bx, h); cx.stroke();
+    }
+    var rows = 12;
+    for (var r = 0; r < rows; r++) {
+      var t = Math.pow(r / rows, 1.5);
+      var y = horizon + t * (h - horizon);
+      var spread = 0.2 + t * 1.6;
+      cx.beginPath();
+      cx.moveTo(vanishX - vanishX * spread, y);
+      cx.lineTo(vanishX + vanishX * spread, y);
+      cx.stroke();
+    }
+    // Horizon glow
+    cx.strokeStyle = 'rgba(0,255,136,0.12)';
+    cx.beginPath(); cx.moveTo(0, horizon); cx.lineTo(w, horizon); cx.stroke();
+    // Subtle side walls
+    cx.strokeStyle = 'rgba(0,255,136,0.04)';
+    for (var wr = 0; wr < 8; wr++) {
+      var wy = horizon * wr / 8;
+      cx.beginPath(); cx.moveTo(0, wy); cx.lineTo(vanishX, horizon); cx.stroke();
+      cx.beginPath(); cx.moveTo(w, wy); cx.lineTo(vanishX, horizon); cx.stroke();
+    }
+    cx.restore();
+  }
+
+  function drawNeuralNet(cx, w, h) {
+    if (!neuralNodes || neuralNodes.length === 0) neuralNodes = initNeuralNodes(w, h);
+    var nodes = neuralNodes;
+    var now = performance.now() * 0.001;
+    cx.save();
+    // Move nodes
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > w) n.vx = -n.vx;
+      if (n.y < 0 || n.y > h) n.vy = -n.vy;
+      n.x = Math.max(0, Math.min(w, n.x));
+      n.y = Math.max(0, Math.min(h, n.y));
+    }
+    // Connections
+    cx.lineWidth = 0.5;
+    var maxDist = Math.min(w, h) * 0.2;
+    for (var a = 0; a < nodes.length; a++) {
+      for (var b = a + 1; b < nodes.length; b++) {
+        var dx = nodes[a].x - nodes[b].x;
+        var dy = nodes[a].y - nodes[b].y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < maxDist) {
+          var alpha = (1 - d / maxDist) * 0.15;
+          cx.strokeStyle = 'rgba(192,132,252,' + alpha.toFixed(3) + ')';
+          cx.beginPath();
+          cx.moveTo(nodes[a].x, nodes[a].y);
+          cx.lineTo(nodes[b].x, nodes[b].y);
+          cx.stroke();
+        }
+      }
+    }
+    // Nodes
+    for (var k = 0; k < nodes.length; k++) {
+      var nd = nodes[k];
+      var pulse = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(now * 1.5 + nd.pulse));
+      cx.fillStyle = 'rgba(127,216,255,' + (pulse * 0.5).toFixed(2) + ')';
+      cx.shadowBlur = 8 * pulse;
+      cx.shadowColor = 'rgba(127,216,255,0.4)';
+      cx.beginPath();
+      cx.arc(nd.x, nd.y, nd.r * pulse, 0, 2 * Math.PI);
+      cx.fill();
+    }
+    cx.shadowBlur = 0;
+    cx.restore();
+  }
+
+  function drawSkeletonBg(cx, w, h) {
+    var bg = KN.state.skeletonBg || 'none';
+    if (bg === 'grid') drawGridRoom(cx, w, h);
+    else if (bg === 'neural') drawNeuralNet(cx, w, h);
+  }
+
   var holistic = (function () {
     var inst = null;
     var resolveFrame = null;
@@ -316,7 +432,7 @@
             cx.save();
             cx.clearRect(0, 0, w, h);
             if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
-            else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
+            else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); drawSkeletonBg(cx, w, h); }
             var poseLms = results.poseLandmarks;
             var faceLms = results.faceLandmarks;
             var lhLms = results.leftHandLandmarks;
