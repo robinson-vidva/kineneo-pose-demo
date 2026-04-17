@@ -6,16 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#1a1a1a" />
 <title>KineNeo - Pose Demo</title>
-<link rel="stylesheet" href="styles.css?v=16" />
+<link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
 <div class="app">
   <h1>KineNeo - Pose Demo</h1>
-
-  <div class="mode-selector" id="modeSelector">
-    <button id="mode_pose" class="mode-btn on" type="button">Pose</button>
-    <button id="mode_objects" class="mode-btn" type="button">Objects</button>
-  </div>
 
   <div class="stage" id="stage">
     <div class="placeholder" id="placeholder">Tap "Start Camera" to begin</div>
@@ -78,19 +73,7 @@
     </div>
   </div>
 
-  <div class="panel hidden" id="objectsPanel">
-    <div class="section-title">Object Detection</div>
-    <div class="kv-grid">
-      <div class="kv"><span class="k">Status</span><span class="v" id="o_status">-</span></div>
-      <div class="kv"><span class="k">Objects found</span><span class="v" id="o_count">-</span></div>
-      <div class="kv"><span class="k">Mean confidence</span><span class="v" id="o_conf">-</span></div>
-      <div class="kv"><span class="k">Model</span><span class="v" id="o_model">COCO-SSD</span></div>
-    </div>
-    <div class="section-title">Detected Objects</div>
-    <div class="obj-list" id="objList">No objects detected.</div>
-  </div>
-
-  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v16</span></footer>
+  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">build v17</span></footer>
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
@@ -98,11 +81,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
 
-<script src="js/helpers.js?v=16"></script>
-<script src="js/spark.js?v=16"></script>
-<script src="js/neuro.js?v=16"></script>
-<script src="js/models.js?v=16"></script>
-<script src="js/objects.js?v=16"></script>
-<script src="js/app.js?v=16"></script>
+<script src="js/helpers.js?v=17"></script>
+<script src="js/spark.js?v=17"></script>
+<script src="js/neuro.js?v=17"></script>
+<script src="js/models.js?v=17"></script>
+<script src="js/app.js?v=17"></script>
 </body>
 </html>

@@ -24,26 +24,12 @@ The full text of the Apache License, Version 2.0 is available at
 - **Source:** <https://github.com/google/mediapipe>
 - **Package:** <https://www.npmjs.com/package/@mediapipe/drawing_utils>
 
-## @tensorflow/tfjs (loaded dynamically in Objects mode)
-
-- **Copyright** (c) Google LLC
-- **License:** Apache License, Version 2.0
-- **Source:** <https://github.com/tensorflow/tfjs>
-- **Package:** <https://www.npmjs.com/package/@tensorflow/tfjs>
-
-## @tensorflow-models/coco-ssd (loaded dynamically in Objects mode)
-
-- **Copyright** (c) Google LLC
-- **License:** Apache License, Version 2.0
-- **Source:** <https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd>
-- **Package:** <https://www.npmjs.com/package/@tensorflow-models/coco-ssd>
-
 ---
 
 ## Trademarks
 
-MediaPipe, TensorFlow, and Google are trademarks of Google LLC. This project
-is not affiliated with, endorsed by, or sponsored by Google.
+MediaPipe and Google are trademarks of Google LLC. This project is not
+affiliated with, endorsed by, or sponsored by Google.
 
 ## Citations
 
