@@ -6,7 +6,7 @@
   KN.state = {
     showLabels: true,
     showAngles: true,
-    backgroundMode: 'normal'
+    skeletonOnly: false
   };
 
   KN.constants = {

@@ -14,7 +14,7 @@
   var flipBtn = document.getElementById('flipBtn');
   var labelsBtn = document.getElementById('labelsBtn');
   var anglesBtn = document.getElementById('anglesBtn');
-  var bgBtn = document.getElementById('bgBtn');
+  var skeletonBtn = document.getElementById('skeletonBtn');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
@@ -190,7 +190,7 @@
     flipBtn.disabled = false;
     labelsBtn.disabled = false;
     anglesBtn.disabled = false;
-    bgBtn.disabled = false;
+    skeletonBtn.disabled = false;
     startBtn.textContent = 'Stop';
     startBtn.disabled = false;
     running = true;
@@ -212,7 +212,7 @@
     flipBtn.disabled = true;
     labelsBtn.disabled = true;
     anglesBtn.disabled = true;
-    bgBtn.disabled = true;
+    skeletonBtn.disabled = true;
     startBtn.textContent = 'Start Camera';
     startBtn.disabled = false;
     setStatus('');
@@ -241,16 +241,6 @@
     }
   }
 
-  // --- Background cycling: Normal -> Blur -> Cutout -> Skeleton ---
-  var BG_ORDER = ['normal', 'blur', 'cutout', 'skeleton'];
-  var BG_LABEL = { normal: 'Bg: Normal', blur: 'Bg: Blur', cutout: 'Bg: Cutout', skeleton: 'Bg: Skeleton' };
-  function cycleBackground() {
-    var i = BG_ORDER.indexOf(KN.state.backgroundMode || 'normal');
-    var next = BG_ORDER[(i + 1) % BG_ORDER.length];
-    KN.state.backgroundMode = next;
-    bgBtn.textContent = BG_LABEL[next];
-    bgBtn.classList.toggle('on', next !== 'normal');
-  }
 
   startBtn.addEventListener('click', function () { if (running) stop(); else start(); });
   flipBtn.addEventListener('click', flip);
@@ -262,7 +252,10 @@
     KN.state.showAngles = !KN.state.showAngles;
     anglesBtn.classList.toggle('on', KN.state.showAngles);
   });
-  bgBtn.addEventListener('click', cycleBackground);
+  skeletonBtn.addEventListener('click', function () {
+    KN.state.skeletonOnly = !KN.state.skeletonOnly;
+    skeletonBtn.classList.toggle('on', KN.state.skeletonOnly);
+  });
 
   function isFullscreen() {
     return !!(document.fullscreenElement || document.webkitFullscreenElement);

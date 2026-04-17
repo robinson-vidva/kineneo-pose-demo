@@ -219,7 +219,7 @@
         inst = new window.Holistic({
           locateFile: function (f) { return 'https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/' + f; }
         });
-        inst.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: true, smoothSegmentation: true, refineFaceLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        inst.setOptions({ modelComplexity: 1, smoothLandmarks: true, refineFaceLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
         inst.onResults(function (results) {
           if (resolveFrame) { var r = resolveFrame; resolveFrame = null; r(results); }
         });
@@ -233,31 +233,8 @@
           resolveFrame = function (results) {
             cx.save();
             cx.clearRect(0, 0, w, h);
-            var bg = KN.state.backgroundMode || 'normal';
-            var mask = results.segmentationMask;
-            if (bg === 'skeleton') {
-              cx.fillStyle = '#0a0a0a';
-              cx.fillRect(0, 0, w, h);
-            } else if ((bg === 'blur' || bg === 'cutout') && mask) {
-              cx.drawImage(vid, 0, 0, w, h);
-              cx.save();
-              cx.globalCompositeOperation = 'destination-in';
-              cx.drawImage(mask, 0, 0, w, h);
-              cx.restore();
-              cx.save();
-              cx.globalCompositeOperation = 'destination-over';
-              if (bg === 'blur') {
-                cx.filter = 'blur(16px) brightness(0.7)';
-                cx.drawImage(vid, 0, 0, w, h);
-                cx.filter = 'none';
-              } else {
-                cx.fillStyle = '#0a0a0a';
-                cx.fillRect(0, 0, w, h);
-              }
-              cx.restore();
-            } else {
-              cx.drawImage(vid, 0, 0, w, h);
-            }
+            if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
+            else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
             var poseLms = results.poseLandmarks;
             var faceLms = results.faceLandmarks;
             var lhLms = results.leftHandLandmarks;
