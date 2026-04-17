@@ -288,7 +288,6 @@
   var SK_MODES = [
     { skel: false, bg: 'none',   label: 'Skeleton Off' },
     { skel: true,  bg: 'none',   label: 'Skeleton' },
-    { skel: true,  bg: 'matrix', label: 'Skel: Matrix' },
     { skel: true,  bg: 'void',   label: 'Skel: Void' }
   ];
   var skModeIdx = 0;

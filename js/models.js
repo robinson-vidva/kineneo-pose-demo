@@ -291,45 +291,6 @@
   }
 
   // --- Skeleton-mode backgrounds ---
-  var matrixCols = null;
-  var MATRIX_CHARS = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
-
-  function initMatrixCols(w) {
-    var sz = 14;
-    var n = Math.ceil(w / sz);
-    var cols = new Array(n);
-    for (var i = 0; i < n; i++) cols[i] = { y: Math.random() * -100, speed: 2 + Math.random() * 4, phase: Math.random() };
-    return cols;
-  }
-
-  function drawMatrixRain(cx, w, h) {
-    if (!matrixCols) matrixCols = initMatrixCols(w);
-    var sz = 14;
-    cx.save();
-    cx.font = sz + 'px ui-monospace, SFMono-Regular, Menlo, monospace';
-    cx.textBaseline = 'top';
-    for (var i = 0; i < matrixCols.length; i++) {
-      var col = matrixCols[i];
-      col.y += col.speed;
-      if (col.y > h + 40) { col.y = Math.random() * -200; col.speed = 2 + Math.random() * 4; }
-      var x = i * sz;
-      var steps = Math.ceil(h / sz) + 3;
-      for (var j = 0; j < steps; j++) {
-        var cy = col.y - j * sz;
-        if (cy < -sz || cy > h) continue;
-        var age = j / steps;
-        var alpha = j === 0 ? 0.9 : Math.max(0, 0.5 - age * 0.7);
-        if (alpha < 0.02) continue;
-        var ch = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
-        if (j === 0) { cx.fillStyle = 'rgba(180,255,180,' + alpha.toFixed(2) + ')'; cx.shadowBlur = 8; cx.shadowColor = 'rgba(0,255,70,0.6)'; }
-        else { cx.fillStyle = 'rgba(0,255,70,' + alpha.toFixed(2) + ')'; cx.shadowBlur = 0; }
-        cx.fillText(ch, x, cy);
-      }
-    }
-    cx.shadowBlur = 0;
-    cx.restore();
-  }
-
   function drawGradientVoid(cx, w, h) {
     cx.save();
     var now = performance.now() * 0.0003;
@@ -358,8 +319,7 @@
 
   function drawSkeletonBg(cx, w, h) {
     var bg = KN.state.skeletonBg || 'none';
-    if (bg === 'matrix') drawMatrixRain(cx, w, h);
-    else if (bg === 'void') drawGradientVoid(cx, w, h);
+    if (bg === 'void') drawGradientVoid(cx, w, h);
   }
 
   var holistic = (function () {
