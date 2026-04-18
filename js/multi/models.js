@@ -70,7 +70,7 @@
   var perPerson = {}; // tracked-id -> { prevLms, velocities, regionIntensity, trails, smoothed, cx, cy }
   var nextPersonId = 0;
   var prevFrameIds = []; // array of tracked-ids from last frame
-  var VEL_SMOOTH = 0.35, VEL_MIN = 0.002, VEL_MAX = 0.03;
+  var VEL_SMOOTH = 0.15, VEL_MIN = 0.004, VEL_MAX = 0.03;
   var DEPTH_Z_RANGE = 0.3;
   var HEATMAP_DECAY = 0.97, HEATMAP_GAIN = 8.0;
   var TRAIL_LEN = 16;
@@ -129,7 +129,7 @@
 
   function getPersonState(pid) { return perPerson[pid]; }
 
-  var SMOOTH_FACTOR = 0.12;
+  var SMOOTH_FACTOR = 0.08;
 
   function smoothLandmarks(ps, lms) {
     if (!ps.smoothed) {
