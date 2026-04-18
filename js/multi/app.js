@@ -131,12 +131,8 @@
       if (v == null) H.setMetric(el, '-');
       else H.setMetric(el, v.toFixed(1) + ' deg');
     }
-    // Neuro metrics for primary person
-    if (KN.neuro && stats.bestPoseLms) {
-      try { KN.neuro.update(stats.bestFaceLms, stats.bestPoseLms, ja); } catch (e) { console.error('[kineneo-multi] neuro.update:', e); }
-      try { KN.neuro.updateBehavior(stats.bestPoseLms, KN.neuro.MP_MAP); } catch (e) { console.error('[kineneo-multi] neuro.updateBehavior:', e); }
-      try { if (stats.bestFaceLms) KN.neuro.updateFace(stats.bestFaceLms); } catch (e) { console.error('[kineneo-multi] neuro.updateFace:', e); }
-    }
+    // Neuro metrics for primary person (via multi-aware wrapper)
+    if (KN.multiNeuro) KN.multiNeuro.process(stats);
     // Blend shapes + gestures
     try { updateBlendShapes(stats.blendShapes); } catch (e) {}
     try { updateGesture(stats.gestures, stats.gestureHandednesses); } catch (e) {}
