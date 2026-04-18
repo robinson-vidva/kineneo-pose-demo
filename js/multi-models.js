@@ -85,9 +85,26 @@
     if (!perPerson[pid]) {
       var trails = {};
       for (var i = 0; i < TRAIL_KEYS.length; i++) trails[TRAIL_KEYS[i]] = [];
-      perPerson[pid] = { prevLms: null, velocities: new Array(33).fill(0), regionIntensity: { head:0, torso:0, leftArm:0, rightArm:0, leftLeg:0, rightLeg:0 }, trails: trails };
+      perPerson[pid] = { prevLms: null, velocities: new Array(33).fill(0), regionIntensity: { head:0, torso:0, leftArm:0, rightArm:0, leftLeg:0, rightLeg:0 }, trails: trails, smoothed: null };
     }
     return perPerson[pid];
+  }
+
+  var SMOOTH_FACTOR = 0.4;
+
+  function smoothLandmarks(ps, lms) {
+    if (!ps.smoothed) {
+      ps.smoothed = [];
+      for (var k = 0; k < lms.length; k++) ps.smoothed.push({ x: lms[k].x, y: lms[k].y, z: lms[k].z || 0, visibility: lms[k].visibility });
+      return ps.smoothed;
+    }
+    for (var i = 0; i < Math.min(lms.length, ps.smoothed.length); i++) {
+      ps.smoothed[i].x += (lms[i].x - ps.smoothed[i].x) * SMOOTH_FACTOR;
+      ps.smoothed[i].y += (lms[i].y - ps.smoothed[i].y) * SMOOTH_FACTOR;
+      ps.smoothed[i].z += ((lms[i].z || 0) - ps.smoothed[i].z) * SMOOTH_FACTOR;
+      ps.smoothed[i].visibility = lms[i].visibility;
+    }
+    return ps.smoothed;
   }
 
   function clearAllPersonState() { perPerson = {}; }
@@ -343,9 +360,9 @@
       if (!allLandmarks.length) { cx.restore(); return Promise.resolve({ tracking: false, numPersons: 0 }); }
 
       for (var p = 0; p < allLandmarks.length; p++) {
-        var lms = allLandmarks[p];
-        var col = PERSON_COLORS[p % PERSON_COLORS.length];
         var ps = getPersonState(p);
+        var lms = smoothLandmarks(ps, allLandmarks[p]);
+        var col = PERSON_COLORS[p % PERSON_COLORS.length];
 
         drawSymmetryLines(cx, lms, w, h);
         updateRegionIntensity(ps);
@@ -374,8 +391,8 @@
         }
       }
 
-      // Joint angles for first person
-      var bestLms = allLandmarks[0];
+      // Joint angles for first person (use smoothed)
+      var bestLms = getPersonState(0).smoothed || allLandmarks[0];
       var ja = {};
       for (var ai2 = 0; ai2 < ANGLE_DEFS.length; ai2++) {
         var dd = ANGLE_DEFS[ai2];
