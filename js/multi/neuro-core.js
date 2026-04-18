@@ -257,14 +257,16 @@
     return Math.atan2(dy, dx) * 180 / Math.PI;
   }
 
-  // Stillness from overall landmark movement across 1s window. Pushes all-landmark snapshot
-  // and returns "still" or "moving" string plus a numeric velocity.
+  // Stillness from overall landmark movement across 1s window. Uses std-dev of the
+  // mean-landmark position over the window (robust to single-frame spikes), and
+  // gates landmarks at visibility >= 0.7 so flickering low-conf joints don't poison
+  // the mean.
   function updateStillness(lm, now) {
     var summary = null;
     if (lm && lm.length) {
       var xs = 0, ys = 0, n = 0;
       for (var i = 0; i < lm.length; i++) {
-        if (conf(lm[i]) > 0.4) { xs += lm[i].x; ys += lm[i].y; n++; }
+        if (conf(lm[i]) > 0.7) { xs += lm[i].x; ys += lm[i].y; n++; }
       }
       if (n > 0) summary = { t: now, x: xs / n, y: ys / n };
     }
@@ -272,15 +274,23 @@
     state.allLmHistory.push(summary);
     var cutoff = now - 1000;
     while (state.allLmHistory.length && state.allLmHistory[0].t < cutoff) state.allLmHistory.shift();
-    if (state.allLmHistory.length < 3) return null;
-    var first = state.allLmHistory[0], last = state.allLmHistory[state.allLmHistory.length - 1];
-    var dx = last.x - first.x, dy = last.y - first.y;
-    var speed = Math.hypot(dx, dy); // normalized coords/sec-ish
-    var STILL_THRESH = 0.01;
+    if (state.allLmHistory.length < 5) return null;
+    var N = state.allLmHistory.length;
+    var mx = 0, my = 0;
+    for (var k = 0; k < N; k++) { mx += state.allLmHistory[k].x; my += state.allLmHistory[k].y; }
+    mx /= N; my /= N;
+    var vx = 0, vy = 0;
+    for (var k2 = 0; k2 < N; k2++) {
+      var ddx = state.allLmHistory[k2].x - mx;
+      var ddy = state.allLmHistory[k2].y - my;
+      vx += ddx * ddx; vy += ddy * ddy;
+    }
+    var sd = Math.sqrt((vx + vy) / N); // combined std-dev of mean position over window
+    var STILL_THRESH = 0.008;
     window.KN.multiDebug = window.KN.multiDebug || {};
-    window.KN.multiDebug.stillSpeed = speed;
+    window.KN.multiDebug.stillSpeed = sd;
     window.KN.multiDebug.stillThresh = STILL_THRESH;
-    return speed < STILL_THRESH ? 'still' : 'moving';
+    return sd < STILL_THRESH ? 'still' : 'moving';
   }
 
   // Head tremor: std-dev of nose position over last 1.5s, normalized by inter-eye distance.

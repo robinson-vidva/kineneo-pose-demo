@@ -286,11 +286,11 @@
       '  smooth vel  : ' + fmt(d.maxSmoothVel) + '\n' +
       '  alpha max   : ' + fmt(d.maxAlpha) + '\n' +
       '  (min ' + fmt(d.smoothMin) + '  max ' + fmt(d.smoothMax) + '  ref ' + fmt(d.velRef) + ')\n' +
-      '\nSTILLNESS (1s window)\n' +
-      '  speed       : ' + fmt(stillSpeed) + '\n' +
+      '\nSTILLNESS (std-dev, 1s, vis>=0.7)\n' +
+      '  pos sd      : ' + fmt(stillSpeed) + '\n' +
       '  threshold   : ' + fmt(stillThresh) + '\n' +
       '  verdict     : ' + stillVerdict + '\n' +
-      '\nTIP: stand still 3s — raw/smooth/speed = noise floor';
+      '\nTIP: stand still 3s — raw/smooth/sd = noise floor';
   }
   debugCopyBtn.addEventListener('click', function (e) {
     e.stopPropagation();
