@@ -90,7 +90,7 @@
     return perPerson[pid];
   }
 
-  var SMOOTH_FACTOR = 0.4;
+  var SMOOTH_FACTOR = 0.2;
 
   function smoothLandmarks(ps, lms) {
     if (!ps.smoothed) {
@@ -107,7 +107,24 @@
     return ps.smoothed;
   }
 
-  function clearAllPersonState() { perPerson = {}; }
+  var smoothedFaces = {};
+
+  function clearAllPersonState() { perPerson = {}; smoothedFaces = {}; }
+
+  function smoothFace(fid, lms) {
+    if (!smoothedFaces[fid]) {
+      smoothedFaces[fid] = [];
+      for (var k = 0; k < lms.length; k++) smoothedFaces[fid].push({ x: lms[k].x, y: lms[k].y, z: lms[k].z || 0 });
+      return smoothedFaces[fid];
+    }
+    var s = smoothedFaces[fid];
+    for (var i = 0; i < Math.min(lms.length, s.length); i++) {
+      s[i].x += (lms[i].x - s[i].x) * SMOOTH_FACTOR;
+      s[i].y += (lms[i].y - s[i].y) * SMOOTH_FACTOR;
+      s[i].z += ((lms[i].z || 0) - s[i].z) * SMOOTH_FACTOR;
+    }
+    return s;
+  }
 
   function depthScale(z) { var t = -(z || 0) / DEPTH_Z_RANGE; return 1 + Math.max(-1, Math.min(1, t)) * 0.5; }
 
@@ -311,8 +328,10 @@
       if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
       else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); if ((KN.state.skeletonBg||'none') === 'void') drawGradientVoid(cx,w,h); }
 
-      // --- Face meshes ---
-      var faces = faceResult.faceLandmarks || [];
+      // --- Face meshes (smoothed) ---
+      var rawFaces = faceResult.faceLandmarks || [];
+      var faces = [];
+      for (var sfi = 0; sfi < rawFaces.length; sfi++) faces.push(smoothFace(sfi, rawFaces[sfi]));
       for (var fi = 0; fi < faces.length; fi++) {
         var face = faces[fi];
         cx.save();
