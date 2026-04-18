@@ -130,10 +130,11 @@
   function getPersonState(pid) { return perPerson[pid]; }
 
   var SMOOTH_FACTOR = 0.12;          // face smoothing (constant)
-  // Velocity-adaptive pose smoothing: heavy when still, snappy when moving
-  var POSE_SMOOTH_MIN = 0.12;        // at rest: kills jitter
-  var POSE_SMOOTH_MAX = 0.6;         // fast motion: ~1-frame lag
-  var POSE_VEL_REF = 0.02;           // velocity at which alpha reaches max
+  // Velocity-adaptive pose smoothing: heavy when still, snap when moving.
+  // Driven by instantaneous velocity (rawVelocities) for zero-lag response.
+  var POSE_SMOOTH_MIN = 0.15;        // at rest: kills jitter
+  var POSE_SMOOTH_MAX = 0.95;        // fast motion: effectively snap
+  var POSE_VEL_REF = 0.008;          // velocity at which alpha reaches max
 
   function smoothLandmarks(ps, lms) {
     if (!ps.smoothed) {
@@ -141,10 +142,13 @@
       for (var k = 0; k < lms.length; k++) ps.smoothed.push({ x: lms[k].x, y: lms[k].y, z: lms[k].z || 0, visibility: lms[k].visibility });
       return ps.smoothed;
     }
+    var raws = ps.rawVelocities || ps.velocities;
     for (var i = 0; i < Math.min(lms.length, ps.smoothed.length); i++) {
-      var vel = ps.velocities[i] || 0;
+      var vel = raws[i] || 0;
       var t = Math.min(1, vel / POSE_VEL_REF);
-      var a = POSE_SMOOTH_MIN + (POSE_SMOOTH_MAX - POSE_SMOOTH_MIN) * t;
+      // Ease curve biases toward responsiveness once motion is detected
+      var eased = t * t * (3 - 2 * t);
+      var a = POSE_SMOOTH_MIN + (POSE_SMOOTH_MAX - POSE_SMOOTH_MIN) * eased;
       ps.smoothed[i].x += (lms[i].x - ps.smoothed[i].x) * a;
       ps.smoothed[i].y += (lms[i].y - ps.smoothed[i].y) * a;
       ps.smoothed[i].z += ((lms[i].z || 0) - ps.smoothed[i].z) * a;
@@ -182,10 +186,18 @@
   function heatColor(t) { return 'hsla(' + Math.round(240 - Math.max(0, Math.min(1, t)) * 240) + ',90%,55%,'; }
 
   function updateVelocities(ps, lms) {
-    if (!ps.prevLms) { ps.prevLms = []; for (var k = 0; k < lms.length; k++) ps.prevLms.push({ x: lms[k].x, y: lms[k].y }); return; }
+    if (!ps.prevLms) {
+      ps.prevLms = [];
+      ps.rawVelocities = new Array(33).fill(0);
+      for (var k = 0; k < lms.length; k++) ps.prevLms.push({ x: lms[k].x, y: lms[k].y });
+      return;
+    }
+    if (!ps.rawVelocities) ps.rawVelocities = new Array(33).fill(0);
     for (var i = 0; i < Math.min(lms.length, 33); i++) {
       var dx = lms[i].x - ps.prevLms[i].x, dy = lms[i].y - ps.prevLms[i].y;
-      ps.velocities[i] = ps.velocities[i] * (1 - VEL_SMOOTH) + Math.sqrt(dx * dx + dy * dy) * VEL_SMOOTH;
+      var raw = Math.sqrt(dx * dx + dy * dy);
+      ps.rawVelocities[i] = raw;
+      ps.velocities[i] = ps.velocities[i] * (1 - VEL_SMOOTH) + raw * VEL_SMOOTH;
       ps.prevLms[i].x = lms[i].x; ps.prevLms[i].y = lms[i].y;
     }
   }
