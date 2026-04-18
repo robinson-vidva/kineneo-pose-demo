@@ -257,18 +257,21 @@
     return Math.atan2(dy, dx) * 180 / Math.PI;
   }
 
-  // Stillness from overall landmark movement across 1s window. Uses std-dev of the
-  // mean-landmark position over the window (robust to single-frame spikes), and
-  // gates landmarks at visibility >= 0.7 so flickering low-conf joints don't poison
-  // the mean.
+  // Stillness from torso-anchor movement across 1s window. Uses std-dev of the
+  // mean position over the window (robust to single-frame spikes). Averages a
+  // fixed subset — both shoulders (11,12) + both hips (23,24) — instead of a
+  // visibility-gated set, so the subset can't flicker frame-to-frame and
+  // inject fake motion into the mean.
+  var STILL_ANCHORS = [11, 12, 23, 24];
   function updateStillness(lm, now) {
     var summary = null;
     if (lm && lm.length) {
       var xs = 0, ys = 0, n = 0;
-      for (var i = 0; i < lm.length; i++) {
-        if (conf(lm[i]) > 0.7) { xs += lm[i].x; ys += lm[i].y; n++; }
+      for (var ai = 0; ai < STILL_ANCHORS.length; ai++) {
+        var p = lm[STILL_ANCHORS[ai]];
+        if (p && conf(p) > 0.5) { xs += p.x; ys += p.y; n++; }
       }
-      if (n > 0) summary = { t: now, x: xs / n, y: ys / n };
+      if (n >= 3) summary = { t: now, x: xs / n, y: ys / n };
     }
     if (!summary) return null;
     state.allLmHistory.push(summary);
