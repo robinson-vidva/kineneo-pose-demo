@@ -296,6 +296,23 @@
     return filesetPromise;
   }
 
+  // Create a task with GPU delegate, falling back to CPU on failure.
+  function createWithFallback(TaskCls, fileset, opts, label) {
+    var gpuOpts = JSON.parse(JSON.stringify(opts));
+    gpuOpts.baseOptions.delegate = 'GPU';
+    return TaskCls.createFromOptions(fileset, gpuOpts).then(
+      function (inst) { console.log('[kineneo-multi] ' + label + ' ready (GPU)'); return inst; },
+      function (gpuErr) {
+        console.warn('[kineneo-multi] ' + label + ' GPU failed, trying CPU:', gpuErr && gpuErr.message);
+        var cpuOpts = JSON.parse(JSON.stringify(opts));
+        cpuOpts.baseOptions.delegate = 'CPU';
+        return TaskCls.createFromOptions(fileset, cpuOpts).then(function (inst) {
+          console.log('[kineneo-multi] ' + label + ' ready (CPU)'); return inst;
+        });
+      }
+    );
+  }
+
   KN.multiModel = {
     name: 'Tasks API (Pose + Face + Hands)',
     init: function (onProgress) {
@@ -306,41 +323,41 @@
         if (!poseLandmarker) {
           progress('Downloading PoseLandmarker model...');
           tasks.push(
-            ctx.mod.PoseLandmarker.createFromOptions(ctx.fileset, {
-              baseOptions: { modelAssetPath: POSE_MODEL, delegate: 'GPU' },
+            createWithFallback(ctx.mod.PoseLandmarker, ctx.fileset, {
+              baseOptions: { modelAssetPath: POSE_MODEL },
               runningMode: 'VIDEO',
               numPoses: 6,
               minPoseDetectionConfidence: 0.5,
               minPosePresenceConfidence: 0.6,
               minTrackingConfidence: 0.6
-            }).then(function (lm) { poseLandmarker = lm; console.log('[kineneo-multi] PoseLandmarker ready'); })
+            }, 'PoseLandmarker').then(function (lm) { poseLandmarker = lm; })
           );
         }
         if (!faceLandmarker) {
           progress('Downloading FaceLandmarker model...');
           tasks.push(
-            ctx.mod.FaceLandmarker.createFromOptions(ctx.fileset, {
-              baseOptions: { modelAssetPath: FACE_MODEL, delegate: 'GPU' },
+            createWithFallback(ctx.mod.FaceLandmarker, ctx.fileset, {
+              baseOptions: { modelAssetPath: FACE_MODEL },
               runningMode: 'VIDEO',
               numFaces: 6,
               outputFaceBlendshapes: true,
               minFaceDetectionConfidence: 0.5,
               minFacePresenceConfidence: 0.5,
               minTrackingConfidence: 0.5
-            }).then(function (lm) { faceLandmarker = lm; console.log('[kineneo-multi] FaceLandmarker ready'); })
+            }, 'FaceLandmarker').then(function (lm) { faceLandmarker = lm; })
           );
         }
         if (!gestureRecognizer) {
           progress('Downloading GestureRecognizer model...');
           tasks.push(
-            ctx.mod.GestureRecognizer.createFromOptions(ctx.fileset, {
-              baseOptions: { modelAssetPath: GESTURE_MODEL, delegate: 'GPU' },
+            createWithFallback(ctx.mod.GestureRecognizer, ctx.fileset, {
+              baseOptions: { modelAssetPath: GESTURE_MODEL },
               runningMode: 'VIDEO',
               numHands: 4,
               minHandDetectionConfidence: 0.5,
               minHandPresenceConfidence: 0.5,
               minTrackingConfidence: 0.5
-            }).then(function (gr) { gestureRecognizer = gr; console.log('[kineneo-multi] GestureRecognizer ready'); })
+            }, 'GestureRecognizer').then(function (gr) { gestureRecognizer = gr; })
           );
         }
         progress('Loading all models...');
