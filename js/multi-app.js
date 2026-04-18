@@ -133,9 +133,9 @@
     }
     // Neuro metrics for primary person
     if (KN.neuro && stats.bestPoseLms) {
-      try { KN.neuro.update(stats.bestFaceLms, stats.bestPoseLms, ja); } catch (e) {}
-      try { KN.neuro.updateBehavior(stats.bestPoseLms, KN.neuro.MP_MAP); } catch (e) {}
-      try { if (stats.bestFaceLms) KN.neuro.updateFace(stats.bestFaceLms); } catch (e) {}
+      try { KN.neuro.update(stats.bestFaceLms, stats.bestPoseLms, ja); } catch (e) { console.error('[kineneo-multi] neuro.update:', e); }
+      try { KN.neuro.updateBehavior(stats.bestPoseLms, KN.neuro.MP_MAP); } catch (e) { console.error('[kineneo-multi] neuro.updateBehavior:', e); }
+      try { if (stats.bestFaceLms) KN.neuro.updateFace(stats.bestFaceLms); } catch (e) { console.error('[kineneo-multi] neuro.updateFace:', e); }
     }
     // Blend shapes + gestures
     try { updateBlendShapes(stats.blendShapes); } catch (e) {}

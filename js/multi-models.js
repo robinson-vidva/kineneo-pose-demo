@@ -322,6 +322,9 @@
       try { poseResult = poseLandmarker.detectForVideo(vid, ts); } catch (e) { poseResult = { landmarks: [] }; }
       try { faceResult = faceLandmarker ? faceLandmarker.detectForVideo(vid, ts) : { faceLandmarks: [] }; } catch (e) { faceResult = { faceLandmarks: [] }; }
       try { handResult = gestureRecognizer ? gestureRecognizer.recognizeForVideo(vid, ts) : { landmarks: [], gestures: [], handednesses: [] }; } catch (e) { handResult = { landmarks: [], gestures: [], handednesses: [] }; }
+      // Normalize GestureRecognizer property names (it uses 'landmarks' not 'handLandmarks')
+      if (!handResult.landmarks && handResult.handLandmarks) handResult.landmarks = handResult.handLandmarks;
+      if (!handResult.handednesses && handResult.handedness) handResult.handednesses = handResult.handedness;
 
       cx.save();
       cx.clearRect(0, 0, w, h);
@@ -347,8 +350,8 @@
       }
 
       // --- Hand skeletons ---
-      var hands = handResult.landmarks || [];
-      var handedness = handResult.handednesses || [];
+      var hands = handResult.landmarks || handResult.handLandmarks || [];
+      var handedness = handResult.handednesses || handResult.handedness || [];
       for (var hi = 0; hi < hands.length; hi++) {
         var hand = hands[hi];
         var handLabel = (handedness[hi] && handedness[hi][0] && handedness[hi][0].displayName) || '';
@@ -369,7 +372,7 @@
           cx.fillStyle = '#FFF';
           cx.beginPath(); cx.arc(hand[hk].x * w, hand[hk].y * h, 2, 0, 2 * Math.PI); cx.fill();
         }
-        if (handLabel) H.drawTextBadge(cx, hand[0].x * w + 8, hand[0].y * h - 14, handLabel, handCol);
+        if (handLabel && hand[0]) H.drawTextBadge(cx, hand[0].x * w + 8, hand[0].y * h - 14, handLabel, handCol);
         cx.shadowBlur = 0;
         cx.restore();
       }
@@ -433,6 +436,23 @@
       }
       var totalLms = 33 * allLandmarks.length + faces.length * 478 + hands.length * 21;
 
+      // Pair best face with best pose by nose proximity
+      var bestFace = null, bestBlendShapes = null, bestFaceIdx = 0;
+      if (faces.length > 0 && bestLms && bestLms[0]) {
+        var poseNose = bestLms[0];
+        var minDist = Infinity;
+        for (var bfi = 0; bfi < faces.length; bfi++) {
+          var fn = faces[bfi][1]; // face nose landmark
+          if (!fn) continue;
+          var fd = Math.hypot(fn.x - poseNose.x, fn.y - poseNose.y);
+          if (fd < minDist) { minDist = fd; bestFaceIdx = bfi; }
+        }
+        bestFace = faces[bestFaceIdx];
+      }
+      if (faceResult.faceBlendshapes && faceResult.faceBlendshapes[bestFaceIdx]) {
+        bestBlendShapes = faceResult.faceBlendshapes[bestFaceIdx].categories;
+      }
+
       cx.restore();
       return Promise.resolve({
         tracking: true,
@@ -444,10 +464,10 @@
         meanConfidence: confS / bestLms.length,
         jointAngles: ja,
         bestPoseLms: bestLms,
-        bestFaceLms: faces.length > 0 ? faces[0] : null,
-        blendShapes: (faceResult.faceBlendshapes && faceResult.faceBlendshapes[0]) ? faceResult.faceBlendshapes[0].categories : null,
+        bestFaceLms: bestFace,
+        blendShapes: bestBlendShapes,
         gestures: handResult.gestures || [],
-        gestureHandednesses: handResult.handednesses || []
+        gestureHandednesses: handResult.handednesses || handResult.handedness || []
       });
     },
     clearState: clearAllPersonState,
