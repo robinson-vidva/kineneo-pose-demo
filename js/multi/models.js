@@ -262,7 +262,6 @@
   }
 
   function drawVelocitySkeleton(cx, ps, lms, w, h) {
-    updateVelocities(ps, lms);
     cx.save(); cx.lineCap = 'round';
     for (var i = 0; i < POSE_CONNECTIONS.length; i++) {
       var ai = POSE_CONNECTIONS[i][0], bi = POSE_CONNECTIONS[i][1], A = lms[ai], B = lms[bi];
@@ -423,7 +422,8 @@
       var trackedIds = matchPersonIds(allLandmarks);
       for (var p = 0; p < allLandmarks.length; p++) {
         var ps = getPersonState(trackedIds[p]);
-        var lms = smoothLandmarks(ps, allLandmarks[p]);
+        updateVelocities(ps, allLandmarks[p]); // velocity from RAW landmarks
+        var lms = smoothLandmarks(ps, allLandmarks[p]); // smooth for drawing
         var col = PERSON_COLORS[trackedIds[p] % PERSON_COLORS.length];
 
         drawSymmetryLines(cx, lms, w, h);
