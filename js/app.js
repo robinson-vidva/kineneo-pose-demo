@@ -334,5 +334,19 @@
   document.addEventListener('fullscreenchange', syncFsBtn);
   document.addEventListener('webkitfullscreenchange', syncFsBtn);
 
+  // Collapsible panel sections
+  function toggleSection(titleEl) {
+    var collapsed = titleEl.classList.toggle('collapsed');
+    var el = titleEl.nextElementSibling;
+    while (el && !el.classList.contains('section-title')) {
+      el.style.display = collapsed ? 'none' : '';
+      el = el.nextElementSibling;
+    }
+  }
+  var sectionTitles = document.querySelectorAll('#panel .section-title');
+  for (var sti = 0; sti < sectionTitles.length; sti++) {
+    sectionTitles[sti].addEventListener('click', function () { toggleSection(this); });
+  }
+
   window.addEventListener('pagehide', function () { stop(); });
 })();

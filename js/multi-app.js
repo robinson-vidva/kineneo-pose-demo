@@ -268,5 +268,24 @@
   fullscreenBtn.addEventListener('click', function () { if (isFullscreen()) exitFs(); else requestFs(document.documentElement); });
   document.addEventListener('fullscreenchange', syncFsBtn);
   document.addEventListener('webkitfullscreenchange', syncFsBtn);
+  // Collapsible panel sections — click title to toggle content until next title
+  function toggleSection(titleEl) {
+    var collapsed = titleEl.classList.toggle('collapsed');
+    var el = titleEl.nextElementSibling;
+    while (el && !el.classList.contains('section-title')) {
+      el.style.display = collapsed ? 'none' : '';
+      el = el.nextElementSibling;
+    }
+  }
+  var sectionTitles = document.querySelectorAll('#panel .section-title');
+  for (var sti = 0; sti < sectionTitles.length; sti++) {
+    sectionTitles[sti].addEventListener('click', function () { toggleSection(this); });
+  }
+  // Default: collapse Neuro + Blend Shapes to keep panel compact on multi
+  sectionTitles.forEach(function (t) {
+    var txt = t.textContent.toLowerCase();
+    if (txt.indexOf('neuro') >= 0 || txt.indexOf('blend') >= 0) toggleSection(t);
+  });
+
   window.addEventListener('pagehide', function () { stop(); });
 })();

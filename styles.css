@@ -161,7 +161,13 @@ button.toggle.on {
   letter-spacing: 0.12em;
   font-size: 10px;
   margin: 0 0 6px 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
 }
+.panel .section-title:hover { color: #aaa; }
+.panel .section-title::before { content: '▾ '; font-size: 9px; }
+.panel .section-title.collapsed::before { content: '▸ '; }
 .panel .section-title:not(:first-child) { margin-top: 12px; }
 .kv-grid {
   display: grid;

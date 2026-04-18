@@ -7,7 +7,7 @@
   var TASKS_VERSION = '0.10.34';
   var TASKS_BUNDLE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + TASKS_VERSION + '/vision_bundle.mjs';
   var TASKS_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + TASKS_VERSION + '/wasm';
-  var POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
+  var POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task';
   var FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task';
   var GESTURE_MODEL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/latest/gesture_recognizer.task';
 
@@ -239,8 +239,8 @@
               runningMode: 'VIDEO',
               numPoses: 6,
               minPoseDetectionConfidence: 0.5,
-              minPosePresenceConfidence: 0.5,
-              minTrackingConfidence: 0.5
+              minPosePresenceConfidence: 0.6,
+              minTrackingConfidence: 0.6
             }).then(function (lm) { poseLandmarker = lm; console.log('[kineneo-multi] PoseLandmarker ready'); })
           );
         }
