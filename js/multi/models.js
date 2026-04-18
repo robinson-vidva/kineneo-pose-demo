@@ -129,7 +129,11 @@
 
   function getPersonState(pid) { return perPerson[pid]; }
 
-  var SMOOTH_FACTOR = 0.08;
+  var SMOOTH_FACTOR = 0.12;          // face smoothing (constant)
+  // Velocity-adaptive pose smoothing: heavy when still, snappy when moving
+  var POSE_SMOOTH_MIN = 0.12;        // at rest: kills jitter
+  var POSE_SMOOTH_MAX = 0.6;         // fast motion: ~1-frame lag
+  var POSE_VEL_REF = 0.02;           // velocity at which alpha reaches max
 
   function smoothLandmarks(ps, lms) {
     if (!ps.smoothed) {
@@ -138,9 +142,12 @@
       return ps.smoothed;
     }
     for (var i = 0; i < Math.min(lms.length, ps.smoothed.length); i++) {
-      ps.smoothed[i].x += (lms[i].x - ps.smoothed[i].x) * SMOOTH_FACTOR;
-      ps.smoothed[i].y += (lms[i].y - ps.smoothed[i].y) * SMOOTH_FACTOR;
-      ps.smoothed[i].z += ((lms[i].z || 0) - ps.smoothed[i].z) * SMOOTH_FACTOR;
+      var vel = ps.velocities[i] || 0;
+      var t = Math.min(1, vel / POSE_VEL_REF);
+      var a = POSE_SMOOTH_MIN + (POSE_SMOOTH_MAX - POSE_SMOOTH_MIN) * t;
+      ps.smoothed[i].x += (lms[i].x - ps.smoothed[i].x) * a;
+      ps.smoothed[i].y += (lms[i].y - ps.smoothed[i].y) * a;
+      ps.smoothed[i].z += ((lms[i].z || 0) - ps.smoothed[i].z) * a;
       ps.smoothed[i].visibility = lms[i].visibility;
     }
     return ps.smoothed;
