@@ -67,7 +67,9 @@
   var LABEL_INDICES = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 
   // --- Per-person visual state ---
-  var perPerson = {}; // pid -> { prevLms, velocities, regionIntensity, trails }
+  var perPerson = {}; // tracked-id -> { prevLms, velocities, regionIntensity, trails, smoothed, cx, cy }
+  var nextPersonId = 0;
+  var prevFrameIds = []; // array of tracked-ids from last frame
   var VEL_SMOOTH = 0.35, VEL_MIN = 0.002, VEL_MAX = 0.03;
   var DEPTH_Z_RANGE = 0.3;
   var HEATMAP_DECAY = 0.97, HEATMAP_GAIN = 8.0;
@@ -81,16 +83,53 @@
   };
   var SYM_PAIRS = [[11,12],[13,14],[15,16],[23,24],[25,26],[27,28]];
 
-  function getPersonState(pid) {
-    if (!perPerson[pid]) {
-      var trails = {};
-      for (var i = 0; i < TRAIL_KEYS.length; i++) trails[TRAIL_KEYS[i]] = [];
-      perPerson[pid] = { prevLms: null, velocities: new Array(33).fill(0), regionIntensity: { head:0, torso:0, leftArm:0, rightArm:0, leftLeg:0, rightLeg:0 }, trails: trails, smoothed: null };
+  function centroid(lms) {
+    var sx = 0, sy = 0, n = 0;
+    for (var i = 0; i < lms.length; i++) {
+      if (lms[i] && (lms[i].visibility || 0) > 0.3) { sx += lms[i].x; sy += lms[i].y; n++; }
     }
-    return perPerson[pid];
+    return n > 0 ? { x: sx / n, y: sy / n } : { x: 0.5, y: 0.5 };
   }
 
-  var SMOOTH_FACTOR = 0.2;
+  // Match current frame's people to previous frame's tracked IDs by nearest centroid.
+  function matchPersonIds(allLandmarks) {
+    var curCentroids = [];
+    for (var i = 0; i < allLandmarks.length; i++) curCentroids.push(centroid(allLandmarks[i]));
+
+    var ids = new Array(allLandmarks.length);
+    var usedPrev = {};
+
+    for (var ci = 0; ci < curCentroids.length; ci++) {
+      var bestId = -1, bestDist = 0.15; // max match distance
+      for (var pi = 0; pi < prevFrameIds.length; pi++) {
+        if (usedPrev[pi]) continue;
+        var ps = perPerson[prevFrameIds[pi]];
+        if (!ps) continue;
+        var d = Math.hypot(curCentroids[ci].x - ps.cx, curCentroids[ci].y - ps.cy);
+        if (d < bestDist) { bestDist = d; bestId = pi; }
+      }
+      if (bestId >= 0) {
+        ids[ci] = prevFrameIds[bestId];
+        usedPrev[bestId] = true;
+      } else {
+        ids[ci] = nextPersonId++;
+      }
+      // Update stored centroid
+      if (!perPerson[ids[ci]]) {
+        var trails = {};
+        for (var t = 0; t < TRAIL_KEYS.length; t++) trails[TRAIL_KEYS[t]] = [];
+        perPerson[ids[ci]] = { prevLms: null, velocities: new Array(33).fill(0), regionIntensity: { head:0, torso:0, leftArm:0, rightArm:0, leftLeg:0, rightLeg:0 }, trails: trails, smoothed: null, cx: 0.5, cy: 0.5 };
+      }
+      perPerson[ids[ci]].cx = curCentroids[ci].x;
+      perPerson[ids[ci]].cy = curCentroids[ci].y;
+    }
+    prevFrameIds = ids;
+    return ids;
+  }
+
+  function getPersonState(pid) { return perPerson[pid]; }
+
+  var SMOOTH_FACTOR = 0.12;
 
   function smoothLandmarks(ps, lms) {
     if (!ps.smoothed) {
@@ -109,7 +148,7 @@
 
   var smoothedFaces = {};
 
-  function clearAllPersonState() { perPerson = {}; smoothedFaces = {}; }
+  function clearAllPersonState() { perPerson = {}; smoothedFaces = {}; prevFrameIds = []; nextPersonId = 0; }
 
   function smoothFace(fid, lms) {
     if (!smoothedFaces[fid]) {
@@ -381,10 +420,11 @@
       var allLandmarks = poseResult.landmarks || [];
       if (!allLandmarks.length) { cx.restore(); return Promise.resolve({ tracking: false, numPersons: 0 }); }
 
+      var trackedIds = matchPersonIds(allLandmarks);
       for (var p = 0; p < allLandmarks.length; p++) {
-        var ps = getPersonState(p);
+        var ps = getPersonState(trackedIds[p]);
         var lms = smoothLandmarks(ps, allLandmarks[p]);
-        var col = PERSON_COLORS[p % PERSON_COLORS.length];
+        var col = PERSON_COLORS[trackedIds[p] % PERSON_COLORS.length];
 
         drawSymmetryLines(cx, lms, w, h);
         updateRegionIntensity(ps);
@@ -414,7 +454,8 @@
       }
 
       // Joint angles for first person (use smoothed)
-      var bestLms = getPersonState(0).smoothed || allLandmarks[0];
+      var bestPs = getPersonState(trackedIds[0]);
+      var bestLms = (bestPs && bestPs.smoothed) ? bestPs.smoothed : allLandmarks[0];
       var ja = {};
       for (var ai2 = 0; ai2 < ANGLE_DEFS.length; ai2++) {
         var dd = ANGLE_DEFS[ai2];
