@@ -22,6 +22,8 @@
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var debugBtn = document.getElementById('debugBtn');
   var debugOverlay = document.getElementById('debugOverlay');
+  var debugText = document.getElementById('debugText');
+  var debugCopyBtn = document.getElementById('debugCopyBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
   var panel = document.getElementById('panel');
@@ -278,7 +280,7 @@
     var fmt = function (v) { return (v == null ? '-' : v.toFixed(4)); };
     var stillSpeed = d.stillSpeed, stillThresh = d.stillThresh || 0.01;
     var stillVerdict = stillSpeed == null ? '-' : (stillSpeed < stillThresh ? 'STILL' : 'MOVING');
-    debugOverlay.textContent =
+    debugText.textContent =
       'POSE SMOOTHING\n' +
       '  raw vel max : ' + fmt(d.maxRawVel) + '\n' +
       '  smooth vel  : ' + fmt(d.maxSmoothVel) + '\n' +
@@ -290,6 +292,26 @@
       '  verdict     : ' + stillVerdict + '\n' +
       '\nTIP: stand still 3s — raw/smooth/speed = noise floor';
   }
+  debugCopyBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var txt = debugText.textContent || '';
+    var done = function () {
+      var prev = debugCopyBtn.textContent;
+      debugCopyBtn.textContent = 'Copied';
+      setTimeout(function () { debugCopyBtn.textContent = prev; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done).catch(function () {
+        var r = document.createRange(); r.selectNodeContents(debugText);
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+        try { document.execCommand('copy'); done(); } catch (err) {}
+      });
+    } else {
+      var r = document.createRange(); r.selectNodeContents(debugText);
+      var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      try { document.execCommand('copy'); done(); } catch (err) {}
+    }
+  });
   document.addEventListener('fullscreenchange', syncFsBtn);
   document.addEventListener('webkitfullscreenchange', syncFsBtn);
   // Collapsible panel sections — click title to toggle content until next title
