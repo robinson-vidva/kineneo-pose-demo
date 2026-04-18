@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#1a1a1a" />
 <title>KineNeo - Multi-Person</title>
-<link rel="stylesheet" href="styles.css?v=49" />
+<link rel="stylesheet" href="styles.css?v=50" />
 </head>
 <body>
 <div class="app">
@@ -55,8 +55,6 @@
     <button id="labelsBtn" class="toggle on" type="button" disabled>Labels</button>
     <button id="anglesBtn" class="toggle on" type="button" disabled>Angles</button>
     <button id="skeletonBtn" class="toggle" type="button" disabled>Skeleton Off</button>
-    <button id="radarBtn" class="toggle" type="button" disabled>Radar</button>
-    <button id="spectrogramBtn" class="toggle" type="button" disabled>Spectrogram</button>
     <button id="fullscreenBtn" class="toggle" type="button">Fullscreen</button>
     <button id="debugBtn" class="toggle" type="button">Debug</button>
   </div>
@@ -80,96 +78,210 @@
     </div>
 
     <div class="tab-pane active" data-pane="body">
-      <div class="section-title">Joint Angles (deg)</div>
-      <div class="kv-grid">
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L shoulder</span><span class="v" id="a_lshoulder">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R shoulder</span><span class="v" id="a_rshoulder">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L elbow</span><span class="v" id="a_lelbow">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R elbow</span><span class="v" id="a_relbow">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L hip</span><span class="v" id="a_lhip">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R hip</span><span class="v" id="a_rhip">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L knee</span><span class="v" id="a_lknee">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R knee</span><span class="v" id="a_rknee">-</span></div>
+      <div class="subtab-bar" data-sub-of="body">
+        <button class="subtab active" data-sub="angles" type="button">Angles</button>
+        <button class="subtab" data-sub="posture" type="button">Posture</button>
+        <button class="subtab" data-sub="motion" type="button">Motion</button>
       </div>
-      <div class="section-title">Posture &amp; Behavior</div>
-      <div class="kv-grid">
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">Posture</span><span class="v" id="b_posture">-</span></div>
-        <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">Arms</span><span class="v" id="b_arms">-</span></div>
-        <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Stillness</span><span class="v" id="b_stillness">-</span></div>
-        <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Head tilt</span><span class="v" id="b_headtilt">-</span></div>
-        <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Motor symmetry</span><span class="v" id="n_motorsym">-</span></div>
-        <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Postural sway</span><span class="v" id="n_sway">-</span></div>
+      <div class="subtab-pane active" data-subpane="body/angles">
+        <div class="section-title">Joint Angles (deg)</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L shoulder</span><span class="v" id="a_lshoulder">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R shoulder</span><span class="v" id="a_rshoulder">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L elbow</span><span class="v" id="a_lelbow">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R elbow</span><span class="v" id="a_relbow">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L hip</span><span class="v" id="a_lhip">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R hip</span><span class="v" id="a_rhip">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">L knee</span><span class="v" id="a_lknee">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">R knee</span><span class="v" id="a_rknee">-</span></div>
+        </div>
+      </div>
+      <div class="subtab-pane" data-subpane="body/posture">
+        <div class="section-title">Posture</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">Posture</span><span class="v" id="b_posture">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">Arms</span><span class="v" id="b_arms">-</span></div>
+          <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Head tilt</span><span class="v" id="b_headtilt">-</span></div>
+        </div>
+      </div>
+      <div class="subtab-pane" data-subpane="body/motion">
+        <div class="section-title">Motion</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Stillness</span><span class="v" id="b_stillness">-</span></div>
+          <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Motor symmetry</span><span class="v" id="n_motorsym">-</span></div>
+          <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Postural sway</span><span class="v" id="n_sway">-</span></div>
+        </div>
       </div>
     </div>
 
     <div class="tab-pane" data-pane="face">
-      <div class="neuro-disclaimer">Research proof-of-concept. Not a medical device. Not for diagnosis.</div>
-      <div class="section-title">Expression &amp; Face</div>
-      <div class="kv-grid">
-        <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Smile</span><span class="v" id="n_smile">-</span></div>
-        <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Mouth</span><span class="v" id="n_mouth">-</span></div>
-        <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Brow</span><span class="v" id="n_brow">-</span></div>
-        <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Facial symmetry</span><span class="v" id="n_facesym">-</span></div>
-        <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Blink rate (/min)</span><span class="v" id="n_blink">-</span></div>
-        <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Hypomimia</span><span class="v" id="n_hypo">-</span></div>
+      <div class="subtab-bar" data-sub-of="face">
+        <button class="subtab active" data-sub="expression" type="button">Expression</button>
+        <button class="subtab" data-sub="eyes" type="button">Eyes &amp; Mimicry</button>
+        <button class="subtab" data-sub="blend" type="button">Blend Shapes</button>
       </div>
-      <div class="section-title">Face Blend Shapes (ARKit-style, 0–1)</div>
-      <div class="bs-grid" id="bsGrid"></div>
+      <div class="subtab-pane active" data-subpane="face/expression">
+        <div class="neuro-disclaimer">Research proof-of-concept. Not a medical device. Not for diagnosis.</div>
+        <div class="section-title">Expression</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Smile</span><span class="v" id="n_smile">-</span></div>
+          <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Mouth</span><span class="v" id="n_mouth">-</span></div>
+          <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Brow</span><span class="v" id="n_brow">-</span></div>
+          <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Facial symmetry</span><span class="v" id="n_facesym">-</span></div>
+        </div>
+      </div>
+      <div class="subtab-pane" data-subpane="face/eyes">
+        <div class="section-title">Eyes &amp; Mimicry</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Blink rate (/min)</span><span class="v" id="n_blink">-</span></div>
+          <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Hypomimia</span><span class="v" id="n_hypo">-</span></div>
+        </div>
+      </div>
+      <div class="subtab-pane" data-subpane="face/blend">
+        <div class="section-title">Face Blend Shapes (ARKit-style, 0–1)</div>
+        <div class="bs-grid" id="bsGrid"></div>
+      </div>
     </div>
 
     <div class="tab-pane" data-pane="signals">
-      <div class="section-title">Tremor</div>
-      <div class="kv-grid">
-        <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Head tremor</span><span class="v" id="n_headtremor">-</span></div>
-        <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Tremor Hz</span><span class="v" id="n_tremorhz">-</span></div>
+      <div class="subtab-bar" data-sub-of="signals">
+        <button class="subtab active" data-sub="tremor" type="button">Tremor</button>
+        <button class="subtab" data-sub="radar" type="button">Radar</button>
+        <button class="subtab" data-sub="spectrogram" type="button">Spectrogram</button>
       </div>
-      <div class="neuro-viz">
-        <div class="viz-block hidden" id="radarBlock">
+      <div class="subtab-pane active" data-subpane="signals/tremor">
+        <div class="section-title">Tremor</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Head tremor</span><span class="v" id="n_headtremor">-</span></div>
+          <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Tremor Hz</span><span class="v" id="n_tremorhz">-</span></div>
+        </div>
+      </div>
+      <div class="subtab-pane" data-subpane="signals/radar">
+        <div class="viz-block" id="radarBlock">
           <div class="viz-label">Neuro Radar</div>
           <canvas id="neuroRadar" width="240" height="220"></canvas>
         </div>
-        <div class="viz-block viz-spec hidden" id="spectrogramBlock">
+      </div>
+      <div class="subtab-pane" data-subpane="signals/spectrogram">
+        <div class="viz-block viz-spec" id="spectrogramBlock">
           <div class="viz-label">Head Tremor Spectrogram &mdash; 0-15 Hz</div>
           <canvas id="tremorSpectrogram" width="520" height="100"></canvas>
         </div>
       </div>
-      <div class="muted-hint">Use the Radar / Spectrogram buttons above to toggle visualizations.</div>
     </div>
 
     <div class="tab-pane" data-pane="play">
-      <div class="section-title">Finger tap (index ↔ thumb)</div>
-      <div class="kv-grid">
-        <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">L rate (tap/s)</span><span class="v" id="ft_lrate">-</span></div>
-        <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">R rate (tap/s)</span><span class="v" id="ft_rrate">-</span></div>
-        <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">L total</span><span class="v" id="ft_ltotal">0</span></div>
-        <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">R total</span><span class="v" id="ft_rtotal">0</span></div>
+      <div class="subtab-bar" data-sub-of="play">
+        <button class="subtab active" data-sub="fingertap" type="button">Finger Tap</button>
+        <button class="subtab" data-sub="compass" type="button">Head Compass</button>
+        <button class="subtab" data-sub="reps" type="button">Reps</button>
+        <button class="subtab" data-sub="holdstill" type="button">Hold Still</button>
       </div>
-      <div class="neuro-viz">
-        <div class="viz-block" style="flex:1 1 480px; min-width:300px;">
-          <div class="viz-label">Pinch distance — normalized to palm (L blue / R purple)</div>
-          <canvas id="fingerTapCanvas" width="520" height="110"></canvas>
+
+      <div class="subtab-pane active" data-subpane="play/fingertap">
+        <div class="section-title">Finger tap (index ↔ thumb)</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">L rate (tap/s)</span><span class="v" id="ft_lrate">-</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">R rate (tap/s)</span><span class="v" id="ft_rrate">-</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">L total</span><span class="v" id="ft_ltotal">0</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">R total</span><span class="v" id="ft_rtotal">0</span></div>
         </div>
+        <div class="neuro-viz">
+          <div class="viz-block" style="flex:1 1 480px; min-width:300px;">
+            <div class="viz-label">Pinch distance — normalized to palm (L blue / R purple)</div>
+            <canvas id="fingerTapCanvas" width="520" height="110"></canvas>
+          </div>
+        </div>
+        <div class="play-actions">
+          <button id="ftResetBtn" class="toggle" type="button">Reset tap counter</button>
+        </div>
+        <div class="muted-hint">Tap thumb to index. Rate = taps in last 3 s, palm-normalized.</div>
       </div>
-      <div class="play-actions">
-        <button id="ftResetBtn" class="toggle" type="button">Reset tap counter</button>
+
+      <div class="subtab-pane" data-subpane="play/compass">
+        <div class="section-title">Head Compass</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Yaw (deg)</span><span class="v" id="hc_yaw">-</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Challenge hold</span><span class="v" id="hc_hold">-</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Best</span><span class="v" id="hc_best">-</span></div>
+        </div>
+        <div class="neuro-viz">
+          <div class="viz-block" style="flex:1 1 480px; min-width:300px;">
+            <div class="viz-label">Turn head left / right &mdash; green zone is ±3°</div>
+            <canvas id="compassCanvas" width="520" height="90"></canvas>
+          </div>
+        </div>
+        <div class="play-actions">
+          <button id="hcStartBtn" class="toggle" type="button">Start Hold-Center Challenge</button>
+          <button id="hcResetBtn" class="toggle" type="button">Reset best</button>
+        </div>
+        <div class="muted-hint">Hold yaw under ±3° for as long as you can.</div>
       </div>
-      <div class="muted-hint">Show your hand to the camera. Tap thumb to index to count. Rate = taps in last 3 s.</div>
+
+      <div class="subtab-pane" data-subpane="play/reps">
+        <div class="section-title">Rep Counter</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Reps</span><span class="v" id="rp_count">0</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Phase</span><span class="v" id="rp_phase">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">Last ROM</span><span class="v" id="rp_last">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">Best ROM</span><span class="v" id="rp_best">-</span></div>
+          <div class="kv"><span class="tag tag-physio">PHYSIO</span><span class="k">Last duration</span><span class="v" id="rp_dur">-</span></div>
+        </div>
+        <div class="neuro-viz">
+          <div class="viz-block" style="flex:1 1 480px; min-width:300px;">
+            <div class="viz-label">Angle gauge — blue dot is current</div>
+            <canvas id="repsCanvas" width="520" height="90"></canvas>
+          </div>
+        </div>
+        <div class="play-actions">
+          <button id="rpModeSquatBtn" class="toggle on" type="button">Squat</button>
+          <button id="rpModeArmBtn" class="toggle" type="button">Arm raise</button>
+          <button id="rpResetBtn" class="toggle" type="button">Reset</button>
+        </div>
+        <div class="muted-hint">Full low → high → low cycle = 1 rep. Uses the right-side joint by default.</div>
+      </div>
+
+      <div class="subtab-pane" data-subpane="play/holdstill">
+        <div class="section-title">Hold Still</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Held</span><span class="v" id="hs_held">-</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Best</span><span class="v" id="hs_best">-</span></div>
+          <div class="kv"><span class="tag tag-fun">FUN</span><span class="k">Verdict</span><span class="v" id="hs_verdict">-</span></div>
+        </div>
+        <div class="neuro-viz">
+          <div class="viz-block" style="flex:0 0 auto;">
+            <div class="viz-label">Hold still; ring fills. Breaks on MOVING.</div>
+            <canvas id="holdCanvas" width="240" height="240"></canvas>
+          </div>
+        </div>
+        <div class="play-actions">
+          <button id="hsStart10" class="toggle" type="button">Start 10s</button>
+          <button id="hsStart30" class="toggle" type="button">Start 30s</button>
+          <button id="hsStart60" class="toggle" type="button">Start 60s</button>
+          <button id="hsCancel" class="toggle" type="button">Cancel</button>
+          <button id="hsResetBest" class="toggle" type="button">Reset best</button>
+        </div>
+        <div class="muted-hint">Uses the torso-anchor stillness verdict. Tip: calibrate in Debug first.</div>
+      </div>
     </div>
   </div>
 
-  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">multi v20</span></footer>
+  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">multi v21</span></footer>
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
 
 <!-- Multi-person only: completely isolated from Holistic (js/*) -->
-<script src="js/multi/helpers.js?v=49"></script>
-<script src="js/multi/spark.js?v=49"></script>
-<script src="js/multi/viz.js?v=49"></script>
-<script src="js/multi/neuro-core.js?v=49"></script>
-<script src="js/multi/neuro.js?v=49"></script>
-<script src="js/multi/models.js?v=49"></script>
-<script src="js/multi/play-fingertap.js?v=49"></script>
-<script src="js/multi/app.js?v=49"></script>
+<script src="js/multi/helpers.js?v=50"></script>
+<script src="js/multi/spark.js?v=50"></script>
+<script src="js/multi/viz.js?v=50"></script>
+<script src="js/multi/neuro-core.js?v=50"></script>
+<script src="js/multi/neuro.js?v=50"></script>
+<script src="js/multi/models.js?v=50"></script>
+<script src="js/multi/play-fingertap.js?v=50"></script>
+<script src="js/multi/play-compass.js?v=50"></script>
+<script src="js/multi/play-reps.js?v=50"></script>
+<script src="js/multi/play-holdstill.js?v=50"></script>
+<script src="js/multi/app.js?v=50"></script>
 </body>
 </html>

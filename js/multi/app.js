@@ -15,10 +15,6 @@
   var labelsBtn = document.getElementById('labelsBtn');
   var anglesBtn = document.getElementById('anglesBtn');
   var skeletonBtn = document.getElementById('skeletonBtn');
-  var radarBtn = document.getElementById('radarBtn');
-  var spectrogramBtn = document.getElementById('spectrogramBtn');
-  var radarBlock = document.getElementById('radarBlock');
-  var spectrogramBlock = document.getElementById('spectrogramBlock');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var debugBtn = document.getElementById('debugBtn');
   var debugOverlay = document.getElementById('debugOverlay');
@@ -53,7 +49,57 @@
     ftResetBtn.addEventListener('click', function () { KN.playFingerTap.reset(); });
   }
 
+  var hcYaw = document.getElementById('hc_yaw');
+  var hcHold = document.getElementById('hc_hold');
+  var hcBest = document.getElementById('hc_best');
+  var compassCanvas = document.getElementById('compassCanvas');
+  var hcStartBtn = document.getElementById('hcStartBtn');
+  var hcResetBtn = document.getElementById('hcResetBtn');
+  if (hcStartBtn && KN.playCompass) {
+    hcStartBtn.addEventListener('click', function () {
+      if (KN.playCompass.isInChallenge()) { KN.playCompass.stopChallenge(); hcStartBtn.textContent = 'Start Hold-Center Challenge'; hcStartBtn.classList.remove('on'); }
+      else { KN.playCompass.startChallenge(); hcStartBtn.textContent = 'Stop Challenge'; hcStartBtn.classList.add('on'); }
+    });
+  }
+  if (hcResetBtn && KN.playCompass) hcResetBtn.addEventListener('click', function () { KN.playCompass.resetBest(); });
+
+  var rpCount = document.getElementById('rp_count');
+  var rpPhase = document.getElementById('rp_phase');
+  var rpLast = document.getElementById('rp_last');
+  var rpBest = document.getElementById('rp_best');
+  var rpDur = document.getElementById('rp_dur');
+  var repsCanvas = document.getElementById('repsCanvas');
+  var rpSquatBtn = document.getElementById('rpModeSquatBtn');
+  var rpArmBtn = document.getElementById('rpModeArmBtn');
+  var rpResetBtn = document.getElementById('rpResetBtn');
+  function syncRepsMode() {
+    var m = KN.playReps && KN.playReps.mode();
+    if (rpSquatBtn) rpSquatBtn.classList.toggle('on', m === 'squat');
+    if (rpArmBtn) rpArmBtn.classList.toggle('on', m === 'armRaise');
+  }
+  if (rpSquatBtn && KN.playReps) rpSquatBtn.addEventListener('click', function () { KN.playReps.setMode('squat'); syncRepsMode(); });
+  if (rpArmBtn && KN.playReps) rpArmBtn.addEventListener('click', function () { KN.playReps.setMode('armRaise'); syncRepsMode(); });
+  if (rpResetBtn && KN.playReps) rpResetBtn.addEventListener('click', function () { KN.playReps.reset(); });
+  syncRepsMode();
+
+  var hsHeld = document.getElementById('hs_held');
+  var hsBest = document.getElementById('hs_best');
+  var hsVerdict = document.getElementById('hs_verdict');
+  var holdCanvas = document.getElementById('holdCanvas');
+  var hsStart10 = document.getElementById('hsStart10');
+  var hsStart30 = document.getElementById('hsStart30');
+  var hsStart60 = document.getElementById('hsStart60');
+  var hsCancel = document.getElementById('hsCancel');
+  var hsResetBest = document.getElementById('hsResetBest');
+  if (hsStart10 && KN.playHoldStill) hsStart10.addEventListener('click', function () { KN.playHoldStill.start(10000); });
+  if (hsStart30 && KN.playHoldStill) hsStart30.addEventListener('click', function () { KN.playHoldStill.start(30000); });
+  if (hsStart60 && KN.playHoldStill) hsStart60.addEventListener('click', function () { KN.playHoldStill.start(60000); });
+  if (hsCancel && KN.playHoldStill) hsCancel.addEventListener('click', function () { KN.playHoldStill.cancel(); });
+  if (hsResetBest && KN.playHoldStill) hsResetBest.addEventListener('click', function () { KN.playHoldStill.resetBest(); });
+
   var currentTab = 'body';
+  var currentSub = { body: 'angles', face: 'expression', signals: 'tremor', play: 'fingertap' };
+  function isActive(main, sub) { return currentTab === main && (sub ? currentSub[main] === sub : true); }
   var tabButtons = document.querySelectorAll('.tab-bar .tab');
   var tabPanes = document.querySelectorAll('.tab-pane');
   for (var ti = 0; ti < tabButtons.length; ti++) {
@@ -63,6 +109,24 @@
       for (var i = 0; i < tabButtons.length; i++) tabButtons[i].classList.toggle('active', tabButtons[i] === this);
       for (var j = 0; j < tabPanes.length; j++) tabPanes[j].classList.toggle('active', tabPanes[j].getAttribute('data-pane') === name);
     });
+  }
+  var subtabBars = document.querySelectorAll('.subtab-bar');
+  for (var sbi = 0; sbi < subtabBars.length; sbi++) {
+    (function (bar) {
+      var parent = bar.getAttribute('data-sub-of');
+      var btns = bar.querySelectorAll('.subtab');
+      for (var k = 0; k < btns.length; k++) {
+        btns[k].addEventListener('click', function () {
+          var sub = this.getAttribute('data-sub');
+          currentSub[parent] = sub;
+          for (var m = 0; m < btns.length; m++) btns[m].classList.toggle('active', btns[m] === this);
+          var panes = document.querySelectorAll('.tab-pane[data-pane="' + parent + '"] .subtab-pane');
+          for (var n = 0; n < panes.length; n++) {
+            panes[n].classList.toggle('active', panes[n].getAttribute('data-subpane') === parent + '/' + sub);
+          }
+        });
+      }
+    })(subtabBars[sbi]);
   }
 
   // --- Blend shapes UI ---
@@ -157,14 +221,22 @@
       if (v == null) H.setMetric(el, '-');
       else H.setMetric(el, v.toFixed(1) + ' deg');
     }
-    // Neuro metrics for primary person (via multi-aware wrapper)
+    // Neuro metrics for primary person (always runs to keep rolling buffers fed).
     if (KN.multiNeuro) KN.multiNeuro.process(stats);
-    // Blend shapes + gestures
-    try { updateBlendShapes(stats.blendShapes); } catch (e) {}
+    // Gestures: widget is on the canvas stage, always render.
     try { updateGesture(stats.gestures, stats.gestureHandednesses); } catch (e) {}
-    // Finger-tap tracker runs every frame so taps count even off-tab
+    // Blend shapes are ~18 DOM writes/frame — only update when that subtab is active.
+    if (isActive('face', 'blend')) { try { updateBlendShapes(stats.blendShapes); } catch (e) {} }
+    // Play widgets: processing always runs; DOM/canvas writes gated below.
+    var now = performance.now();
     if (KN.playFingerTap) {
-      try { KN.playFingerTap.process(stats.handLandmarks, stats.handHandednesses, performance.now()); } catch (e) {}
+      try { KN.playFingerTap.process(stats.handLandmarks, stats.handHandednesses, now); } catch (e) {}
+    }
+    if (KN.playCompass) { try { KN.playCompass.process(stats.bestFaceLms, now); } catch (e) {} }
+    if (KN.playReps) { try { KN.playReps.process(stats.jointAngles, now); } catch (e) {} }
+    if (KN.playHoldStill) { try { KN.playHoldStill.process(now); } catch (e) {} }
+    // DOM writes for the active Play subtab only.
+    if (isActive('play', 'fingertap') && KN.playFingerTap) {
       try {
         var lr = KN.playFingerTap.rate('L'), rr = KN.playFingerTap.rate('R');
         if (ftLrate) H.setMetric(ftLrate, lr.toFixed(2), lr > 2 ? 'good' : null);
@@ -173,20 +245,53 @@
         if (ftRtotal) H.setMetric(ftRtotal, String(KN.playFingerTap.total('R')));
       } catch (e) {}
     }
+    if (isActive('play', 'compass') && KN.playCompass) {
+      var y = KN.playCompass.getYaw();
+      H.setMetric(hcYaw, y == null ? '-' : y.toFixed(1) + '°');
+      var hold = KN.playCompass.getHold();
+      H.setMetric(hcHold, KN.playCompass.isInChallenge() ? (hold / 1000).toFixed(1) + 's' : '-');
+      H.setMetric(hcBest, KN.playCompass.getBest() > 0 ? (KN.playCompass.getBest() / 1000).toFixed(1) + 's' : '-');
+    }
+    if (isActive('play', 'reps') && KN.playReps) {
+      H.setMetric(rpCount, String(KN.playReps.count()));
+      H.setMetric(rpPhase, KN.playReps.phase());
+      var lr2 = KN.playReps.lastRom();
+      H.setMetric(rpLast, lr2 == null ? '-' : lr2.toFixed(0) + '°');
+      H.setMetric(rpBest, KN.playReps.bestRom() === 0 ? '-' : KN.playReps.bestRom().toFixed(0) + '°');
+      var ld = KN.playReps.lastDurMs();
+      H.setMetric(rpDur, ld == null ? '-' : (ld / 1000).toFixed(1) + 's');
+    }
+    if (isActive('play', 'holdstill') && KN.playHoldStill) {
+      var held = KN.playHoldStill.heldMs();
+      H.setMetric(hsHeld, held > 0 || KN.playHoldStill.isRunning() ? (held / 1000).toFixed(1) + 's' : '-');
+      var bm = KN.playHoldStill.bestMs();
+      H.setMetric(hsBest, bm > 0 ? (bm / 1000).toFixed(1) + 's' : '-');
+      var v = (KN.multiStill && KN.multiStill.lastVerdict) || '-';
+      H.setMetric(hsVerdict, v, v === 'still' ? 'good' : (v === 'moving' ? 'warn' : null));
+    }
   }
 
   function updateViz() {
     vizFrame++;
     if (!KN.viz) return;
-    if (KN.state.showRadar && radarCvs && (vizFrame % 8) === 0) {
+    if (isActive('signals', 'radar') && radarCvs && (vizFrame % 8) === 0) {
       try { KN.viz.drawRadar(radarCvs, KN.neuro.getLatest()); } catch (e) {}
     }
-    if (KN.state.showSpectrogram && specCvs && (vizFrame % 3) === 0) {
+    if (isActive('signals', 'spectrogram') && specCvs && (vizFrame % 3) === 0) {
       var spec = KN.neuro.getSpectrum();
       if (spec) { try { KN.viz.drawSpectrogramColumn(spec); } catch (e) {} }
     }
-    if (currentTab === 'play' && ftCanvas && KN.playFingerTap && (vizFrame % 2) === 0) {
+    if (isActive('play', 'fingertap') && ftCanvas && KN.playFingerTap && (vizFrame % 2) === 0) {
       try { KN.playFingerTap.draw(ftCanvas); } catch (e) {}
+    }
+    if (isActive('play', 'compass') && compassCanvas && KN.playCompass && (vizFrame % 2) === 0) {
+      try { KN.playCompass.draw(compassCanvas); } catch (e) {}
+    }
+    if (isActive('play', 'reps') && repsCanvas && KN.playReps && (vizFrame % 2) === 0) {
+      try { KN.playReps.draw(repsCanvas); } catch (e) {}
+    }
+    if (isActive('play', 'holdstill') && holdCanvas && KN.playHoldStill) {
+      try { KN.playHoldStill.draw(holdCanvas); } catch (e) {}
     }
   }
 
@@ -242,7 +347,7 @@
     H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
     placeholder.style.display = 'none'; canvas.style.display = 'block'; fpsEl.style.display = 'block'; badge.style.display = 'block';
     panel.classList.remove('hidden');
-    [flipBtn, labelsBtn, anglesBtn, skeletonBtn, radarBtn, spectrogramBtn].forEach(function (b) { b.disabled = false; });
+    [flipBtn, labelsBtn, anglesBtn, skeletonBtn].forEach(function (b) { b.disabled = false; });
     startBtn.textContent = 'Stop'; startBtn.disabled = false;
     running = true; clearPanel(); buildBlendShapeRows(); setStatus('');
     frameCount = 0; lastFpsUpdate = performance.now(); rafLoop();
@@ -255,7 +360,7 @@
     if (gestureWidget) gestureWidget.style.display = 'none';
     canvas.style.display = 'none'; fpsEl.style.display = 'none'; badge.style.display = 'none';
     panel.classList.add('hidden'); placeholder.style.display = 'flex';
-    [flipBtn, labelsBtn, anglesBtn, skeletonBtn, radarBtn, spectrogramBtn].forEach(function (b) { b.disabled = true; });
+    [flipBtn, labelsBtn, anglesBtn, skeletonBtn].forEach(function (b) { b.disabled = true; });
     startBtn.textContent = 'Start Camera'; startBtn.disabled = false; setStatus('');
   }
 
@@ -287,15 +392,6 @@
     skModeIdx = (skModeIdx + 1) % SK_MODES.length;
     var m = SK_MODES[skModeIdx]; KN.state.skeletonOnly = m.skel; KN.state.skeletonBg = m.bg;
     skeletonBtn.textContent = m.label; skeletonBtn.classList.toggle('on', m.skel);
-  });
-  radarBtn.addEventListener('click', function () {
-    KN.state.showRadar = !KN.state.showRadar; radarBtn.classList.toggle('on', KN.state.showRadar);
-    radarBlock.classList.toggle('hidden', !KN.state.showRadar);
-  });
-  spectrogramBtn.addEventListener('click', function () {
-    KN.state.showSpectrogram = !KN.state.showSpectrogram; spectrogramBtn.classList.toggle('on', KN.state.showSpectrogram);
-    spectrogramBlock.classList.toggle('hidden', !KN.state.showSpectrogram);
-    if (KN.state.showSpectrogram && KN.viz) KN.viz.clearSpectrogram();
   });
 
   function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
