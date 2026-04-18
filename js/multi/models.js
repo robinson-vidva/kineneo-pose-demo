@@ -143,17 +143,27 @@
       return ps.smoothed;
     }
     var raws = ps.rawVelocities || ps.velocities;
+    var maxRaw = 0, maxSm = 0, maxA = 0;
     for (var i = 0; i < Math.min(lms.length, ps.smoothed.length); i++) {
       var vel = raws[i] || 0;
+      if (vel > maxRaw) maxRaw = vel;
+      if ((ps.velocities[i] || 0) > maxSm) maxSm = ps.velocities[i] || 0;
       var t = Math.min(1, vel / POSE_VEL_REF);
-      // Ease curve biases toward responsiveness once motion is detected
       var eased = t * t * (3 - 2 * t);
       var a = POSE_SMOOTH_MIN + (POSE_SMOOTH_MAX - POSE_SMOOTH_MIN) * eased;
+      if (a > maxA) maxA = a;
       ps.smoothed[i].x += (lms[i].x - ps.smoothed[i].x) * a;
       ps.smoothed[i].y += (lms[i].y - ps.smoothed[i].y) * a;
       ps.smoothed[i].z += ((lms[i].z || 0) - ps.smoothed[i].z) * a;
       ps.smoothed[i].visibility = lms[i].visibility;
     }
+    KN.multiDebug = KN.multiDebug || {};
+    KN.multiDebug.maxRawVel = maxRaw;
+    KN.multiDebug.maxSmoothVel = maxSm;
+    KN.multiDebug.maxAlpha = maxA;
+    KN.multiDebug.smoothMin = POSE_SMOOTH_MIN;
+    KN.multiDebug.smoothMax = POSE_SMOOTH_MAX;
+    KN.multiDebug.velRef = POSE_VEL_REF;
     return ps.smoothed;
   }
 

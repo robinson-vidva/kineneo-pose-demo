@@ -276,7 +276,11 @@
     var first = state.allLmHistory[0], last = state.allLmHistory[state.allLmHistory.length - 1];
     var dx = last.x - first.x, dy = last.y - first.y;
     var speed = Math.hypot(dx, dy); // normalized coords/sec-ish
-    return speed < 0.01 ? 'still' : 'moving';
+    var STILL_THRESH = 0.01;
+    window.KN.multiDebug = window.KN.multiDebug || {};
+    window.KN.multiDebug.stillSpeed = speed;
+    window.KN.multiDebug.stillThresh = STILL_THRESH;
+    return speed < STILL_THRESH ? 'still' : 'moving';
   }
 
   // Head tremor: std-dev of nose position over last 1.5s, normalized by inter-eye distance.

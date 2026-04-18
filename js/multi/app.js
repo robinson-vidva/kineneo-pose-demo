@@ -20,6 +20,8 @@
   var radarBlock = document.getElementById('radarBlock');
   var spectrogramBlock = document.getElementById('spectrogramBlock');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
+  var debugBtn = document.getElementById('debugBtn');
+  var debugOverlay = document.getElementById('debugOverlay');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
   var panel = document.getElementById('panel');
@@ -184,6 +186,7 @@
         if (!running) return;
         try { updateMetrics(stats); } catch (e) {}
         try { updateViz(); } catch (e) {}
+        try { updateDebug(); } catch (e) {}
         tickFps(); rafLoop();
       }).catch(function (err) { console.error('[kineneo-multi] run:', err); if (running) rafLoop(); });
     });
@@ -262,6 +265,31 @@
   function exitFs() { if (document.exitFullscreen) return document.exitFullscreen(); if (document.webkitExitFullscreen) return document.webkitExitFullscreen(); }
   function syncFsBtn() { var on = isFullscreen(); fullscreenBtn.classList.toggle('on', on); fullscreenBtn.textContent = on ? 'Exit Fullscreen' : 'Fullscreen'; }
   fullscreenBtn.addEventListener('click', function () { if (isFullscreen()) exitFs(); else requestFs(document.documentElement); });
+
+  var debugOn = false;
+  debugBtn.addEventListener('click', function () {
+    debugOn = !debugOn;
+    debugBtn.classList.toggle('on', debugOn);
+    debugOverlay.style.display = debugOn ? 'block' : 'none';
+  });
+  function updateDebug() {
+    if (!debugOn) return;
+    var d = KN.multiDebug || {};
+    var fmt = function (v) { return (v == null ? '-' : v.toFixed(4)); };
+    var stillSpeed = d.stillSpeed, stillThresh = d.stillThresh || 0.01;
+    var stillVerdict = stillSpeed == null ? '-' : (stillSpeed < stillThresh ? 'STILL' : 'MOVING');
+    debugOverlay.textContent =
+      'POSE SMOOTHING\n' +
+      '  raw vel max : ' + fmt(d.maxRawVel) + '\n' +
+      '  smooth vel  : ' + fmt(d.maxSmoothVel) + '\n' +
+      '  alpha max   : ' + fmt(d.maxAlpha) + '\n' +
+      '  (min ' + fmt(d.smoothMin) + '  max ' + fmt(d.smoothMax) + '  ref ' + fmt(d.velRef) + ')\n' +
+      '\nSTILLNESS (1s window)\n' +
+      '  speed       : ' + fmt(stillSpeed) + '\n' +
+      '  threshold   : ' + fmt(stillThresh) + '\n' +
+      '  verdict     : ' + stillVerdict + '\n' +
+      '\nTIP: stand still 3s — raw/smooth/speed = noise floor';
+  }
   document.addEventListener('fullscreenchange', syncFsBtn);
   document.addEventListener('webkitfullscreenchange', syncFsBtn);
   // Collapsible panel sections — click title to toggle content until next title
