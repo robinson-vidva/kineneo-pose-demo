@@ -66,6 +66,148 @@
   ];
   var LABEL_INDICES = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 
+  // --- Per-person visual state ---
+  var perPerson = {}; // pid -> { prevLms, velocities, regionIntensity, trails }
+  var VEL_SMOOTH = 0.35, VEL_MIN = 0.002, VEL_MAX = 0.03;
+  var DEPTH_Z_RANGE = 0.3;
+  var HEATMAP_DECAY = 0.97, HEATMAP_GAIN = 8.0;
+  var TRAIL_LEN = 16;
+  var TRAIL_KEYS = ['lWrist', 'rWrist', 'lAnkle', 'rAnkle', 'nose'];
+  var TRAIL_IDX = { lWrist: 15, rWrist: 16, lAnkle: 27, rAnkle: 28, nose: 0 };
+  var REGION_MAP = {
+    head: [0,1,2,3,4,5,6,7,8,9,10], torso: [11,12,23,24],
+    leftArm: [11,13,15,17,19,21], rightArm: [12,14,16,18,20,22],
+    leftLeg: [23,25,27,29,31], rightLeg: [24,26,28,30,32]
+  };
+  var SYM_PAIRS = [[11,12],[13,14],[15,16],[23,24],[25,26],[27,28]];
+
+  function getPersonState(pid) {
+    if (!perPerson[pid]) {
+      var trails = {};
+      for (var i = 0; i < TRAIL_KEYS.length; i++) trails[TRAIL_KEYS[i]] = [];
+      perPerson[pid] = { prevLms: null, velocities: new Array(33).fill(0), regionIntensity: { head:0, torso:0, leftArm:0, rightArm:0, leftLeg:0, rightLeg:0 }, trails: trails };
+    }
+    return perPerson[pid];
+  }
+
+  function clearAllPersonState() { perPerson = {}; }
+
+  function depthScale(z) { var t = -(z || 0) / DEPTH_Z_RANGE; return 1 + Math.max(-1, Math.min(1, t)) * 0.5; }
+
+  function velColor(vel) {
+    var t = Math.max(0, Math.min(1, (vel - VEL_MIN) / (VEL_MAX - VEL_MIN)));
+    return 'hsl(' + Math.round(200 - t * 200) + ',' + Math.round(80 + t * 20) + '%,' + Math.round(58 + t * 14) + '%)';
+  }
+
+  function heatColor(t) { return 'hsla(' + Math.round(240 - Math.max(0, Math.min(1, t)) * 240) + ',90%,55%,'; }
+
+  function updateVelocities(ps, lms) {
+    if (!ps.prevLms) { ps.prevLms = []; for (var k = 0; k < lms.length; k++) ps.prevLms.push({ x: lms[k].x, y: lms[k].y }); return; }
+    for (var i = 0; i < Math.min(lms.length, 33); i++) {
+      var dx = lms[i].x - ps.prevLms[i].x, dy = lms[i].y - ps.prevLms[i].y;
+      ps.velocities[i] = ps.velocities[i] * (1 - VEL_SMOOTH) + Math.sqrt(dx * dx + dy * dy) * VEL_SMOOTH;
+      ps.prevLms[i].x = lms[i].x; ps.prevLms[i].y = lms[i].y;
+    }
+  }
+
+  function updateRegionIntensity(ps) {
+    var keys = Object.keys(REGION_MAP);
+    for (var k = 0; k < keys.length; k++) {
+      var idxs = REGION_MAP[keys[k]], sum = 0;
+      for (var i = 0; i < idxs.length; i++) sum += ps.velocities[idxs[i]] || 0;
+      ps.regionIntensity[keys[k]] = ps.regionIntensity[keys[k]] * HEATMAP_DECAY + (sum / idxs.length) * HEATMAP_GAIN * (1 - HEATMAP_DECAY);
+    }
+  }
+
+  function drawHeatmapForPerson(cx, ps, lms, w, h) {
+    var keys = Object.keys(REGION_MAP);
+    cx.save();
+    for (var k = 0; k < keys.length; k++) {
+      var idxs = REGION_MAP[keys[k]], sx = 0, sy = 0, cnt = 0, maxD = 0;
+      for (var i = 0; i < idxs.length; i++) { var p = lms[idxs[i]]; if (p && (p.visibility||0) > 0.3) { sx += p.x*w; sy += p.y*h; cnt++; } }
+      if (cnt < 2) continue;
+      var cx_ = sx/cnt, cy_ = sy/cnt;
+      for (var j = 0; j < idxs.length; j++) { var q = lms[idxs[j]]; if (q && (q.visibility||0) > 0.3) { var d = Math.hypot(q.x*w-cx_, q.y*h-cy_); if (d > maxD) maxD = d; } }
+      var r = Math.max(maxD * 1.3, 30), t = Math.min(1, ps.regionIntensity[keys[k]] * 4);
+      if (t < 0.02) continue;
+      var base = heatColor(t), grad = cx.createRadialGradient(cx_, cy_, 0, cx_, cy_, r);
+      grad.addColorStop(0, base + (0.3*t).toFixed(2) + ')'); grad.addColorStop(1, base + '0)');
+      cx.fillStyle = grad; cx.beginPath(); cx.arc(cx_, cy_, r, 0, 2*Math.PI); cx.fill();
+    }
+    cx.restore();
+  }
+
+  function drawTrailsForPerson(cx, ps, lms, w, h) {
+    for (var ti = 0; ti < TRAIL_KEYS.length; ti++) {
+      var key = TRAIL_KEYS[ti], idx = TRAIL_IDX[key], arr = ps.trails[key];
+      var p = lms[idx]; if (p && (p.visibility||0) > 0.3) { arr.push({ x: p.x*w, y: p.y*h }); if (arr.length > TRAIL_LEN) arr.shift(); }
+    }
+    Object.keys(ps.trails).forEach(function(k) {
+      var arr = ps.trails[k]; if (arr.length < 2) return;
+      for (var i = 1; i < arr.length; i++) {
+        var alpha = i / arr.length;
+        cx.save(); cx.globalAlpha = alpha * 0.4; cx.lineWidth = 1.5 + alpha * 1.5;
+        var grad = cx.createLinearGradient(arr[i-1].x, arr[i-1].y, arr[i].x, arr[i].y);
+        grad.addColorStop(0, 'rgba(127,216,255,0.3)'); grad.addColorStop(1, 'rgba(200,132,252,0.6)');
+        cx.strokeStyle = grad; cx.beginPath(); cx.moveTo(arr[i-1].x, arr[i-1].y); cx.lineTo(arr[i].x, arr[i].y); cx.stroke(); cx.restore();
+      }
+    });
+  }
+
+  function drawSymmetryLines(cx, lms, w, h) {
+    cx.save(); cx.strokeStyle = 'rgba(0,255,136,0.12)'; cx.lineWidth = 1; cx.setLineDash([3,3]);
+    for (var i = 0; i < SYM_PAIRS.length; i++) {
+      var L = lms[SYM_PAIRS[i][0]], R = lms[SYM_PAIRS[i][1]];
+      if (!L || !R || (L.visibility||0) < 0.5 || (R.visibility||0) < 0.5) continue;
+      cx.beginPath(); cx.moveTo(L.x*w, L.y*h); cx.lineTo(R.x*w, R.y*h); cx.stroke();
+    }
+    cx.setLineDash([]); cx.restore();
+  }
+
+  function drawCenterOfMass(cx, lms, w, h, color) {
+    var lSh = lms[11], rSh = lms[12]; if (!lSh || !rSh || (lSh.visibility||0) < 0.5 || (rSh.visibility||0) < 0.5) return;
+    var sx = (lSh.x+rSh.x)/2, sy = (lSh.y+rSh.y)/2, cx_, cy_;
+    var lHip = lms[23], rHip = lms[24];
+    if (lHip && rHip && (lHip.visibility||0) > 0.5 && (rHip.visibility||0) > 0.5) { cx_ = (sx+(lHip.x+rHip.x)/2)/2; cy_ = (sy+(lHip.y+rHip.y)/2)/2; }
+    else { cx_ = sx; cy_ = sy + 0.05; }
+    cx.save(); cx.shadowBlur = 20; cx.shadowColor = color; cx.fillStyle = color; cx.globalAlpha = 0.85;
+    cx.beginPath(); cx.arc(cx_*w, cy_*h, 7, 0, 2*Math.PI); cx.fill(); cx.restore();
+  }
+
+  function drawGradientVoid(cx, w, h) {
+    cx.save(); var now = performance.now() * 0.0003;
+    var cx_ = w/2+Math.sin(now)*w*0.1, cy_ = h/2+Math.cos(now*0.7)*h*0.08;
+    var grad = cx.createRadialGradient(cx_, cy_, 0, cx_, cy_, Math.max(w,h)*0.7);
+    grad.addColorStop(0,'rgba(20,10,40,1)'); grad.addColorStop(0.4,'rgba(8,14,32,1)'); grad.addColorStop(1,'rgba(4,4,8,1)');
+    cx.fillStyle = grad; cx.fillRect(0,0,w,h);
+    cx.globalAlpha = 0.04;
+    for (var i = 0; i < 120; i++) {
+      var nx = (Math.sin(i*127.1+now*2)*0.5+0.5)*w, ny = (Math.cos(i*311.7+now*1.3)*0.5+0.5)*h;
+      cx.fillStyle = i%3===0 ? '#C084FC' : '#7FD8FF'; cx.beginPath(); cx.arc(nx,ny,1+Math.sin(i+now*3)*0.5,0,2*Math.PI); cx.fill();
+    }
+    cx.globalAlpha = 1; cx.restore();
+  }
+
+  function drawVelocitySkeleton(cx, ps, lms, w, h) {
+    updateVelocities(ps, lms);
+    cx.save(); cx.lineCap = 'round';
+    for (var i = 0; i < POSE_CONNECTIONS.length; i++) {
+      var ai = POSE_CONNECTIONS[i][0], bi = POSE_CONNECTIONS[i][1], A = lms[ai], B = lms[bi];
+      if (!A || !B || (A.visibility||0) < 0.3 || (B.visibility||0) < 0.3) continue;
+      var ax = A.x*w, ay = A.y*h, bx = B.x*w, by = B.y*h;
+      var grad = cx.createLinearGradient(ax,ay,bx,by); grad.addColorStop(0,velColor(ps.velocities[ai])); grad.addColorStop(1,velColor(ps.velocities[bi]));
+      cx.strokeStyle = grad; var avgVel = (ps.velocities[ai]+ps.velocities[bi])/2, avgZ = ((A.z||0)+(B.z||0))/2, ds = depthScale(avgZ);
+      cx.lineWidth = 3*ds; cx.shadowBlur = (10+avgVel*400)*ds; cx.shadowColor = velColor(avgVel);
+      cx.beginPath(); cx.moveTo(ax,ay); cx.lineTo(bx,by); cx.stroke();
+    }
+    for (var j = 0; j < Math.min(lms.length,33); j++) {
+      var p = lms[j]; if (!p || (p.visibility||0) < 0.3) continue;
+      var ds2 = depthScale(p.z); cx.shadowBlur = 6*ds2; cx.shadowColor = velColor(ps.velocities[j]); cx.fillStyle = '#FFF';
+      cx.beginPath(); cx.arc(p.x*w,p.y*h,3*ds2,0,2*Math.PI); cx.fill();
+    }
+    cx.shadowBlur = 0; cx.restore();
+  }
+
   function getModule() {
     if (!modulePromise) modulePromise = import(TASKS_BUNDLE);
     return modulePromise;
@@ -149,7 +291,7 @@
       cx.save();
       cx.clearRect(0, 0, w, h);
       if (!KN.state.skeletonOnly) cx.drawImage(vid, 0, 0, w, h);
-      else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); }
+      else { cx.fillStyle = '#0a0a0a'; cx.fillRect(0, 0, w, h); if ((KN.state.skeletonBg||'none') === 'void') drawGradientVoid(cx,w,h); }
 
       // --- Face meshes ---
       var faces = faceResult.faceLandmarks || [];
@@ -195,40 +337,23 @@
         cx.restore();
       }
 
-      // --- Body skeletons ---
+      // --- Body skeletons (full visual pipeline per person) ---
       var allLandmarks = poseResult.landmarks || [];
       if (!allLandmarks.length) { cx.restore(); return Promise.resolve({ tracking: false, numPersons: 0 }); }
 
       for (var p = 0; p < allLandmarks.length; p++) {
         var lms = allLandmarks[p];
         var col = PERSON_COLORS[p % PERSON_COLORS.length];
+        var ps = getPersonState(p);
 
-        cx.save();
-        cx.shadowBlur = 8;
-        cx.shadowColor = col;
-        cx.strokeStyle = col;
-        cx.lineWidth = 2.5;
-        cx.lineCap = 'round';
-        for (var ci = 0; ci < POSE_CONNECTIONS.length; ci++) {
-          var ai = POSE_CONNECTIONS[ci][0], bi = POSE_CONNECTIONS[ci][1];
-          var A = lms[ai], B = lms[bi];
-          if (!A || !B) continue;
-          var vA = A.visibility != null ? A.visibility : 1;
-          var vB = B.visibility != null ? B.visibility : 1;
-          if (vA < 0.3 || vB < 0.3) continue;
-          cx.beginPath(); cx.moveTo(A.x * w, A.y * h); cx.lineTo(B.x * w, B.y * h); cx.stroke();
-        }
-        cx.restore();
+        drawSymmetryLines(cx, lms, w, h);
+        updateRegionIntensity(ps);
+        drawHeatmapForPerson(cx, ps, lms, w, h);
+        drawTrailsForPerson(cx, ps, lms, w, h);
+        drawVelocitySkeleton(cx, ps, lms, w, h);
+        drawCenterOfMass(cx, lms, w, h, col);
 
-        for (var ki = 0; ki < lms.length; ki++) {
-          var pt = lms[ki];
-          if (!pt || (pt.visibility != null && pt.visibility < 0.3)) continue;
-          cx.fillStyle = '#FFF';
-          cx.shadowBlur = 4; cx.shadowColor = col;
-          cx.beginPath(); cx.arc(pt.x * w, pt.y * h, 3, 0, 2 * Math.PI); cx.fill();
-          cx.shadowBlur = 0;
-        }
-
+        // Person label
         var minX = Infinity, minY = Infinity;
         for (var li = 0; li < lms.length; li++) {
           if (lms[li] && (lms[li].visibility || 0) >= 0.3) {
@@ -280,10 +405,14 @@
         landmarkCount: visC,
         totalLandmarks: totalLms,
         meanConfidence: confS / bestLms.length,
-        jointAngles: ja
+        jointAngles: ja,
+        bestPoseLms: bestLms,
+        bestFaceLms: faces.length > 0 ? faces[0] : null
       });
     },
+    clearState: clearAllPersonState,
     destroy: function () {
+      clearAllPersonState();
       if (poseLandmarker) { poseLandmarker.close(); poseLandmarker = null; }
       if (faceLandmarker) { faceLandmarker.close(); faceLandmarker = null; }
       if (handLandmarker) { handLandmarker.close(); handLandmarker = null; }

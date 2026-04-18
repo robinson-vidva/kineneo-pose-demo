@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// multi-app.js - DOM bindings, rAF loop, and camera lifecycle for multi-person MoveNet.
+// multi-app.js - DOM bindings, rAF loop, camera lifecycle for multi-person Tasks API.
 (function () {
   var KN = window.KN = window.KN || {};
   var H = KN.helpers;
@@ -15,6 +15,10 @@
   var labelsBtn = document.getElementById('labelsBtn');
   var anglesBtn = document.getElementById('anglesBtn');
   var skeletonBtn = document.getElementById('skeletonBtn');
+  var radarBtn = document.getElementById('radarBtn');
+  var spectrogramBtn = document.getElementById('spectrogramBtn');
+  var radarBlock = document.getElementById('radarBlock');
+  var spectrogramBlock = document.getElementById('spectrogramBlock');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
@@ -24,6 +28,13 @@
   var m_persons = document.getElementById('m_persons');
   var m_visible = document.getElementById('m_visible');
   var m_conf = document.getElementById('m_conf');
+
+  KN.neuro.bindDom();
+  if (KN.spark) KN.spark.bind();
+  var radarCvs = document.getElementById('neuroRadar');
+  var specCvs = document.getElementById('tremorSpectrogram');
+  if (KN.viz && specCvs) KN.viz.initSpectrogram(specCvs);
+  var vizFrame = 0;
 
   var currentStream = null;
   var facingMode = 'environment';
@@ -41,12 +52,13 @@
   function clearPanel() {
     H.setMetric(m_status, 'NO POSE', 'bad');
     H.setMetric(m_persons, '-');
-    H.setMetric(m_visible, '- / 17');
+    H.setMetric(m_visible, '-');
     H.setMetric(m_conf, '-');
     C.ANGLE_DEFS.forEach(function (d) { H.setMetric(document.getElementById(d.key), '-'); });
     badge.textContent = 'NO POSE';
     badge.classList.remove('tracking');
     badge.classList.add('lost');
+    KN.neuro.clearPanel();
   }
 
   function updateMetrics(stats) {
@@ -56,64 +68,58 @@
     badge.classList.add('tracking');
     badge.classList.remove('lost');
     H.setMetric(m_persons, stats.numPersons + ' body, ' + (stats.numFaces || 0) + ' face, ' + (stats.numHands || 0) + ' hand', stats.numPersons > 1 ? 'good' : null);
-    var vis = stats.landmarkCount;
-    var visCls = vis >= 12 ? 'good' : (vis >= 7 ? 'warn' : 'bad');
-    H.setMetric(m_visible, vis + ' / ' + stats.totalLandmarks, visCls);
+    H.setMetric(m_visible, stats.landmarkCount + ' / ' + stats.totalLandmarks, stats.landmarkCount >= 20 ? 'good' : 'warn');
     var mc = stats.meanConfidence;
-    var confCls = mc >= 0.75 ? 'good' : (mc >= 0.5 ? 'warn' : 'bad');
-    H.setMetric(m_conf, mc.toFixed(2), confCls);
+    H.setMetric(m_conf, mc.toFixed(2), mc >= 0.75 ? 'good' : (mc >= 0.5 ? 'warn' : 'bad'));
     var ja = stats.jointAngles || {};
     for (var i = 0; i < C.ANGLE_DEFS.length; i++) {
-      var d = C.ANGLE_DEFS[i];
-      var el = document.getElementById(d.key);
-      var v = ja[d.key];
+      var d = C.ANGLE_DEFS[i], el = document.getElementById(d.key), v = ja[d.key];
       if (v == null) H.setMetric(el, '-');
       else H.setMetric(el, v.toFixed(1) + ' deg');
+    }
+    // Neuro metrics for primary person
+    if (KN.neuro && stats.bestPoseLms) {
+      try { KN.neuro.update(stats.bestFaceLms, stats.bestPoseLms, ja); } catch (e) {}
+      try { KN.neuro.updateBehavior(stats.bestPoseLms, KN.neuro.MP_MAP); } catch (e) {}
+      try { if (stats.bestFaceLms) KN.neuro.updateFace(stats.bestFaceLms); } catch (e) {}
+    }
+  }
+
+  function updateViz() {
+    vizFrame++;
+    if (!KN.viz) return;
+    if (KN.state.showRadar && radarCvs && (vizFrame % 8) === 0) {
+      try { KN.viz.drawRadar(radarCvs, KN.neuro.getLatest()); } catch (e) {}
+    }
+    if (KN.state.showSpectrogram && specCvs && (vizFrame % 3) === 0) {
+      var spec = KN.neuro.getSpectrum();
+      if (spec) { try { KN.viz.drawSpectrogramColumn(spec); } catch (e) {} }
     }
   }
 
   function tickFps() {
     frameCount++;
     var now = performance.now();
-    var elapsed = now - lastFpsUpdate;
-    if (elapsed >= 500) {
-      var fps = Math.round((frameCount * 1000) / elapsed);
-      fpsEl.textContent = fps + ' FPS';
-      frameCount = 0;
-      lastFpsUpdate = now;
+    if (now - lastFpsUpdate >= 500) {
+      fpsEl.textContent = Math.round((frameCount * 1000) / (now - lastFpsUpdate)) + ' FPS';
+      frameCount = 0; lastFpsUpdate = now;
     }
   }
 
   function stopCurrentStream() {
     return new Promise(function (resolve) {
-      if (currentStream) {
-        currentStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
-        currentStream = null;
-      }
+      if (currentStream) { currentStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); currentStream = null; }
       if (video.srcObject) video.srcObject = null;
       resolve();
     });
   }
 
   async function startStream() {
-    var constraints = {
-      audio: false,
-      video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    };
     var stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (e) {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
-    }
-    currentStream = stream;
-    video.srcObject = stream;
-    await new Promise(function (resolve) {
-      if (video.readyState >= 2) return resolve();
-      video.onloadedmetadata = function () { resolve(); };
-    });
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } } }); }
+    catch (e) { stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 } } }); }
+    currentStream = stream; video.srcObject = stream;
+    await new Promise(function (resolve) { if (video.readyState >= 2) return resolve(); video.onloadedmetadata = function () { resolve(); }; });
     try { await video.play(); } catch (e) {}
   }
 
@@ -123,112 +129,79 @@
       if (!running) return;
       KN.multiModel.run(video, canvas, ctx).then(function (stats) {
         if (!running) return;
-        try { updateMetrics(stats); } catch (e) { console.error('[kineneo-multi] updateMetrics error:', e); }
-        tickFps();
-        rafLoop();
-      }).catch(function (err) {
-        console.error('[kineneo-multi] model.run error:', err);
-        if (running) rafLoop();
-      });
+        try { updateMetrics(stats); } catch (e) {}
+        try { updateViz(); } catch (e) {}
+        tickFps(); rafLoop();
+      }).catch(function (err) { console.error('[kineneo-multi] run:', err); if (running) rafLoop(); });
     });
-  }
-
-  function handleCameraError(err) {
-    startBtn.disabled = false;
-    var name = err && err.name ? err.name : '';
-    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-      setStatus('Camera permission was denied.', true);
-    } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-      setStatus('No camera found.', true);
-    } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-      setStatus('Camera in use by another app.', true);
-    } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      setStatus('Camera requires HTTPS.', true);
-    } else {
-      setStatus('Could not start camera: ' + (err && err.message ? err.message : 'unknown'), true);
-    }
   }
 
   async function start() {
     if (running) return;
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus('Camera API not available.', true);
-      return;
-    }
-    startBtn.disabled = true;
-    setStatus('Requesting camera access...');
-    try { await startStream(); } catch (err) { handleCameraError(err); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { setStatus('Camera API not available.', true); return; }
+    startBtn.disabled = true; setStatus('Requesting camera access...');
+    try { await startStream(); } catch (err) { setStatus('Camera error: ' + (err.message || 'unknown'), true); startBtn.disabled = false; return; }
     if (!modelReady) {
-      setStatus('Loading PoseLandmarker...');
       try { await KN.multiModel.init(function (msg) { setStatus(msg); }); modelReady = true; }
-      catch (err) {
-        console.error('[kineneo-multi] model init failed:', err);
-        setStatus('Failed to load PoseLandmarker: ' + (err && err.message ? err.message : 'unknown'), true);
-        startBtn.disabled = false;
-        await stopCurrentStream();
-        return;
-      }
+      catch (err) { setStatus('Failed to load models: ' + (err.message || 'unknown'), true); startBtn.disabled = false; await stopCurrentStream(); return; }
     }
     H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
-    placeholder.style.display = 'none';
-    canvas.style.display = 'block';
-    fpsEl.style.display = 'block';
-    badge.style.display = 'block';
+    placeholder.style.display = 'none'; canvas.style.display = 'block'; fpsEl.style.display = 'block'; badge.style.display = 'block';
     panel.classList.remove('hidden');
-    flipBtn.disabled = false;
-    labelsBtn.disabled = false;
-    anglesBtn.disabled = false;
-    skeletonBtn.disabled = false;
-    startBtn.textContent = 'Stop';
-    startBtn.disabled = false;
-    running = true;
-    clearPanel();
-    setStatus('');
-    frameCount = 0; lastFpsUpdate = performance.now();
-    rafLoop();
+    [flipBtn, labelsBtn, anglesBtn, skeletonBtn, radarBtn, spectrogramBtn].forEach(function (b) { b.disabled = false; });
+    startBtn.textContent = 'Stop'; startBtn.disabled = false;
+    running = true; clearPanel(); setStatus('');
+    frameCount = 0; lastFpsUpdate = performance.now(); rafLoop();
   }
 
   async function stop() {
-    running = false;
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    running = false; if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     await stopCurrentStream();
-    canvas.style.display = 'none';
-    fpsEl.style.display = 'none';
-    badge.style.display = 'none';
-    panel.classList.add('hidden');
-    placeholder.style.display = 'flex';
-    flipBtn.disabled = true;
-    labelsBtn.disabled = true;
-    anglesBtn.disabled = true;
-    skeletonBtn.disabled = true;
-    startBtn.textContent = 'Start Camera';
-    startBtn.disabled = false;
-    setStatus('');
+    if (KN.viz) KN.viz.clearSpectrogram();
+    canvas.style.display = 'none'; fpsEl.style.display = 'none'; badge.style.display = 'none';
+    panel.classList.add('hidden'); placeholder.style.display = 'flex';
+    [flipBtn, labelsBtn, anglesBtn, skeletonBtn, radarBtn, spectrogramBtn].forEach(function (b) { b.disabled = true; });
+    startBtn.textContent = 'Start Camera'; startBtn.disabled = false; setStatus('');
   }
 
   async function flip() {
-    if (!running) return;
-    flipBtn.disabled = true;
+    if (!running) return; flipBtn.disabled = true;
     facingMode = (facingMode === 'environment') ? 'user' : 'environment';
     try {
-      running = false;
-      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      running = false; if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       if (currentStream) { currentStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); currentStream = null; }
-      await startStream();
-      H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
-      running = true;
-      frameCount = 0; lastFpsUpdate = performance.now();
-      rafLoop();
-    } catch (err) {
-      setStatus('Could not switch camera: ' + (err && err.message ? err.message : 'unknown'), true);
-    } finally { flipBtn.disabled = !running; }
+      await startStream(); H.ensureCanvasSize(canvas, video.videoWidth || 640, video.videoHeight || 480);
+      running = true; frameCount = 0; lastFpsUpdate = performance.now(); rafLoop();
+    } catch (err) { setStatus('Could not switch camera.', true); }
+    finally { flipBtn.disabled = !running; }
   }
+
+  // Skeleton cycling: Off → Skeleton → Void
+  var SK_MODES = [
+    { skel: false, bg: 'none', label: 'Skeleton Off' },
+    { skel: true, bg: 'none', label: 'Skeleton' },
+    { skel: true, bg: 'void', label: 'Skel: Void' }
+  ];
+  var skModeIdx = 0;
 
   startBtn.addEventListener('click', function () { if (running) stop(); else start(); });
   flipBtn.addEventListener('click', flip);
   labelsBtn.addEventListener('click', function () { KN.state.showLabels = !KN.state.showLabels; labelsBtn.classList.toggle('on', KN.state.showLabels); });
   anglesBtn.addEventListener('click', function () { KN.state.showAngles = !KN.state.showAngles; anglesBtn.classList.toggle('on', KN.state.showAngles); });
-  skeletonBtn.addEventListener('click', function () { KN.state.skeletonOnly = !KN.state.skeletonOnly; skeletonBtn.classList.toggle('on', KN.state.skeletonOnly); skeletonBtn.textContent = KN.state.skeletonOnly ? 'Skeleton On' : 'Skeleton Off'; });
+  skeletonBtn.addEventListener('click', function () {
+    skModeIdx = (skModeIdx + 1) % SK_MODES.length;
+    var m = SK_MODES[skModeIdx]; KN.state.skeletonOnly = m.skel; KN.state.skeletonBg = m.bg;
+    skeletonBtn.textContent = m.label; skeletonBtn.classList.toggle('on', m.skel);
+  });
+  radarBtn.addEventListener('click', function () {
+    KN.state.showRadar = !KN.state.showRadar; radarBtn.classList.toggle('on', KN.state.showRadar);
+    radarBlock.classList.toggle('hidden', !KN.state.showRadar);
+  });
+  spectrogramBtn.addEventListener('click', function () {
+    KN.state.showSpectrogram = !KN.state.showSpectrogram; spectrogramBtn.classList.toggle('on', KN.state.showSpectrogram);
+    spectrogramBlock.classList.toggle('hidden', !KN.state.showSpectrogram);
+    if (KN.state.showSpectrogram && KN.viz) KN.viz.clearSpectrogram();
+  });
 
   function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function requestFs(el) { if (el.requestFullscreen) return el.requestFullscreen(); if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen(); }
