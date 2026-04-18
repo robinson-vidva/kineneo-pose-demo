@@ -20,6 +20,10 @@
   var radarBlock = document.getElementById('radarBlock');
   var spectrogramBlock = document.getElementById('spectrogramBlock');
   var fullscreenBtn = document.getElementById('fullscreenBtn');
+  var debugBtn = document.getElementById('debugBtn');
+  var debugOverlay = document.getElementById('debugOverlay');
+  var debugText = document.getElementById('debugText');
+  var debugCopyBtn = document.getElementById('debugCopyBtn');
   var statusEl = document.getElementById('status');
   var placeholder = document.getElementById('placeholder');
   var panel = document.getElementById('panel');
@@ -157,6 +161,7 @@
         if (!running) return;
         try { updateMetrics(stats); } catch (e) { console.error('[kineneo] updateMetrics error:', e); }
         try { updateViz(); } catch (e) { console.error('[kineneo] updateViz error:', e); }
+        try { updateDebug(); } catch (e) {}
         tickFps();
         rafLoop();
       }).catch(function (err) {
@@ -333,6 +338,46 @@
   });
   document.addEventListener('fullscreenchange', syncFsBtn);
   document.addEventListener('webkitfullscreenchange', syncFsBtn);
+
+  var debugOn = false;
+  debugBtn.addEventListener('click', function () {
+    debugOn = !debugOn;
+    debugBtn.classList.toggle('on', debugOn);
+    debugOverlay.style.display = debugOn ? 'block' : 'none';
+  });
+  function updateDebug() {
+    if (!debugOn) return;
+    var d = KN.debug || {};
+    var fmt = function (v) { return (v == null ? '-' : v.toFixed(4)); };
+    var stillSpeed = d.stillSpeed, stillThresh = d.stillThresh || 0.008;
+    var stillVerdict = stillSpeed == null ? '-' : (stillSpeed < stillThresh ? 'STILL' : 'MOVING');
+    debugText.textContent =
+      'STILLNESS (sd, 1s, torso anchors)\n' +
+      '  pos sd      : ' + fmt(stillSpeed) + '\n' +
+      '  threshold   : ' + fmt(stillThresh) + '\n' +
+      '  verdict     : ' + stillVerdict + '\n' +
+      '\nTIP: stand still 3s — pos sd = noise floor';
+  }
+  debugCopyBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var txt = debugText.textContent || '';
+    var done = function () {
+      var prev = debugCopyBtn.textContent;
+      debugCopyBtn.textContent = 'Copied';
+      setTimeout(function () { debugCopyBtn.textContent = prev; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done).catch(function () {
+        var r = document.createRange(); r.selectNodeContents(debugText);
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+        try { document.execCommand('copy'); done(); } catch (err) {}
+      });
+    } else {
+      var r = document.createRange(); r.selectNodeContents(debugText);
+      var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      try { document.execCommand('copy'); done(); } catch (err) {}
+    }
+  });
 
   // Collapsible panel sections
   function toggleSection(titleEl) {

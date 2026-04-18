@@ -257,26 +257,43 @@
     return Math.atan2(dy, dx) * 180 / Math.PI;
   }
 
-  // Stillness from overall landmark movement across 1s window. Pushes all-landmark snapshot
-  // and returns "still" or "moving" string plus a numeric velocity.
+  // Stillness from torso-anchor movement across 1s window. Uses std-dev of the
+  // mean position over the window (robust to single-frame spikes). Averages a
+  // fixed subset — both shoulders (11,12) + both hips (23,24) — instead of a
+  // visibility-gated set, so the subset can't flicker frame-to-frame and
+  // inject fake motion into the mean.
+  var STILL_ANCHORS = [11, 12, 23, 24];
   function updateStillness(lm, now) {
     var summary = null;
     if (lm && lm.length) {
       var xs = 0, ys = 0, n = 0;
-      for (var i = 0; i < lm.length; i++) {
-        if (conf(lm[i]) > 0.4) { xs += lm[i].x; ys += lm[i].y; n++; }
+      for (var ai = 0; ai < STILL_ANCHORS.length; ai++) {
+        var p = lm[STILL_ANCHORS[ai]];
+        if (p && conf(p) > 0.5) { xs += p.x; ys += p.y; n++; }
       }
-      if (n > 0) summary = { t: now, x: xs / n, y: ys / n };
+      if (n >= 3) summary = { t: now, x: xs / n, y: ys / n };
     }
     if (!summary) return null;
     state.allLmHistory.push(summary);
     var cutoff = now - 1000;
     while (state.allLmHistory.length && state.allLmHistory[0].t < cutoff) state.allLmHistory.shift();
-    if (state.allLmHistory.length < 3) return null;
-    var first = state.allLmHistory[0], last = state.allLmHistory[state.allLmHistory.length - 1];
-    var dx = last.x - first.x, dy = last.y - first.y;
-    var speed = Math.hypot(dx, dy); // normalized coords/sec-ish
-    return speed < 0.01 ? 'still' : 'moving';
+    if (state.allLmHistory.length < 5) return null;
+    var N = state.allLmHistory.length;
+    var mx = 0, my = 0;
+    for (var k = 0; k < N; k++) { mx += state.allLmHistory[k].x; my += state.allLmHistory[k].y; }
+    mx /= N; my /= N;
+    var vx = 0, vy = 0;
+    for (var k2 = 0; k2 < N; k2++) {
+      var ddx = state.allLmHistory[k2].x - mx;
+      var ddy = state.allLmHistory[k2].y - my;
+      vx += ddx * ddx; vy += ddy * ddy;
+    }
+    var sd = Math.sqrt((vx + vy) / N);
+    var STILL_THRESH = 0.008;
+    window.KN.debug = window.KN.debug || {};
+    window.KN.debug.stillSpeed = sd;
+    window.KN.debug.stillThresh = STILL_THRESH;
+    return sd < STILL_THRESH ? 'still' : 'moving';
   }
 
   // Head tremor: std-dev of nose position over last 1.5s, normalized by inter-eye distance.
