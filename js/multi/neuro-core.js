@@ -261,9 +261,18 @@
   // mean position over the window (robust to single-frame spikes). Averages a
   // fixed subset — both shoulders (11,12) + both hips (23,24) — instead of a
   // visibility-gated set, so the subset can't flicker frame-to-frame and
-  // inject fake motion into the mean.
+  // inject fake motion into the mean. Hysteresis: enter STILL below enterThresh,
+  // exit STILL above exitThresh, hold previous verdict between them.
   var STILL_ANCHORS = [11, 12, 23, 24];
+  var STILL_ENTER_DEFAULT = 0.006;
+  var STILL_EXIT_DEFAULT = 0.010;
+  window.KN.multiStill = window.KN.multiStill || {
+    enter: STILL_ENTER_DEFAULT,
+    exit: STILL_EXIT_DEFAULT,
+    lastVerdict: 'still'
+  };
   function updateStillness(lm, now) {
+    var cfg = window.KN.multiStill;
     var summary = null;
     if (lm && lm.length) {
       var xs = 0, ys = 0, n = 0;
@@ -288,12 +297,19 @@
       var ddy = state.allLmHistory[k2].y - my;
       vx += ddx * ddx; vy += ddy * ddy;
     }
-    var sd = Math.sqrt((vx + vy) / N); // combined std-dev of mean position over window
-    var STILL_THRESH = 0.008;
+    var sd = Math.sqrt((vx + vy) / N);
+    var prev = cfg.lastVerdict;
+    var verdict;
+    if (prev === 'still') verdict = sd > cfg.exit ? 'moving' : 'still';
+    else verdict = sd < cfg.enter ? 'still' : 'moving';
+    cfg.lastVerdict = verdict;
     window.KN.multiDebug = window.KN.multiDebug || {};
     window.KN.multiDebug.stillSpeed = sd;
-    window.KN.multiDebug.stillThresh = STILL_THRESH;
-    return sd < STILL_THRESH ? 'still' : 'moving';
+    window.KN.multiDebug.stillEnter = cfg.enter;
+    window.KN.multiDebug.stillExit = cfg.exit;
+    // back-compat field for any older readouts
+    window.KN.multiDebug.stillThresh = cfg.exit;
+    return verdict;
   }
 
   // Head tremor: std-dev of nose position over last 1.5s, normalized by inter-eye distance.

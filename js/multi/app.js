@@ -269,17 +269,45 @@
   fullscreenBtn.addEventListener('click', function () { if (isFullscreen()) exitFs(); else requestFs(document.documentElement); });
 
   var debugOn = false;
+  var debugCalibBtn = document.getElementById('debugCalibBtn');
+  var debugResetBtn = document.getElementById('debugResetBtn');
   debugBtn.addEventListener('click', function () {
     debugOn = !debugOn;
     debugBtn.classList.toggle('on', debugOn);
     debugOverlay.style.display = debugOn ? 'block' : 'none';
   });
+  var calibState = null; // { start: ts, samples: [] }
+  function startCalibration() {
+    calibState = { start: performance.now(), samples: [] };
+    debugCalibBtn.textContent = 'Hold still...';
+    debugCalibBtn.disabled = true;
+  }
+  function finishCalibration() {
+    var samples = calibState.samples.slice().sort(function (a, b) { return a - b; });
+    calibState = null;
+    debugCalibBtn.textContent = 'Calibrate';
+    debugCalibBtn.disabled = false;
+    if (samples.length < 10) return; // too few, bail
+    var median = samples[Math.floor(samples.length / 2)];
+    var cfg = KN.multiStill;
+    cfg.enter = Math.max(0.001, median * 2.5);
+    cfg.exit = Math.max(cfg.enter + 0.001, median * 4);
+  }
   function updateDebug() {
     if (!debugOn) return;
     var d = KN.multiDebug || {};
+    var cfg = KN.multiStill || {};
     var fmt = function (v) { return (v == null ? '-' : v.toFixed(4)); };
-    var stillSpeed = d.stillSpeed, stillThresh = d.stillThresh || 0.01;
-    var stillVerdict = stillSpeed == null ? '-' : (stillSpeed < stillThresh ? 'STILL' : 'MOVING');
+    var sd = d.stillSpeed;
+    var vLast = cfg.lastVerdict ? cfg.lastVerdict.toUpperCase() : '-';
+    if (calibState && sd != null) {
+      calibState.samples.push(sd);
+      var elapsed = performance.now() - calibState.start;
+      if (elapsed >= 3000) finishCalibration();
+    }
+    var calibLine = calibState
+      ? '\nCALIBRATING... ' + Math.max(0, (3 - (performance.now() - calibState.start) / 1000)).toFixed(1) + 's  (' + calibState.samples.length + ' samples)'
+      : '';
     debugText.textContent =
       'POSE SMOOTHING\n' +
       '  raw vel max : ' + fmt(d.maxRawVel) + '\n' +
@@ -287,11 +315,23 @@
       '  alpha max   : ' + fmt(d.maxAlpha) + '\n' +
       '  (min ' + fmt(d.smoothMin) + '  max ' + fmt(d.smoothMax) + '  ref ' + fmt(d.velRef) + ')\n' +
       '\nSTILLNESS (sd, 1s, torso anchors)\n' +
-      '  pos sd      : ' + fmt(stillSpeed) + '\n' +
-      '  threshold   : ' + fmt(stillThresh) + '\n' +
-      '  verdict     : ' + stillVerdict + '\n' +
+      '  pos sd      : ' + fmt(sd) + '\n' +
+      '  enter still : ' + fmt(cfg.enter) + '\n' +
+      '  exit still  : ' + fmt(cfg.exit) + '\n' +
+      '  verdict     : ' + vLast +
+      calibLine + '\n' +
       '\nTIP: stand still 3s — raw/smooth/sd = noise floor';
   }
+  debugCalibBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (!calibState) startCalibration();
+  });
+  debugResetBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var cfg = KN.multiStill;
+    if (cfg) { cfg.enter = 0.006; cfg.exit = 0.010; }
+    if (calibState) { calibState = null; debugCalibBtn.textContent = 'Calibrate'; debugCalibBtn.disabled = false; }
+  });
   debugCopyBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     var txt = debugText.textContent || '';

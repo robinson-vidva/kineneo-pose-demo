@@ -133,8 +133,8 @@
   // Velocity-adaptive pose smoothing: heavy when still, snap when moving.
   // Driven by instantaneous velocity (rawVelocities) for zero-lag response.
   var POSE_SMOOTH_MIN = 0.15;        // at rest: kills jitter
-  var POSE_SMOOTH_MAX = 0.95;        // fast motion: effectively snap
-  var POSE_VEL_REF = 0.008;          // velocity at which alpha reaches max
+  var POSE_SMOOTH_MAX = 0.70;        // fast motion: snap-ish, still some lag
+  var POSE_VEL_REF = 0.04;           // velocity at which alpha reaches max
 
   function smoothLandmarks(ps, lms) {
     if (!ps.smoothed) {
