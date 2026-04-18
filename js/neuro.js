@@ -284,7 +284,7 @@
       variance += Math.pow(state.allLmHistory[vi].x - mx, 2) + Math.pow(state.allLmHistory[vi].y - my, 2);
     }
     var speed = Math.sqrt(variance / state.allLmHistory.length);
-    return speed < 0.004 ? 'still' : 'moving';
+    return speed < 0.008 ? 'still' : 'moving';
   }
 
   // Head tremor: std-dev of nose position over last 1.5s, normalized by inter-eye distance.
