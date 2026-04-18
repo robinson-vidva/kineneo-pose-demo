@@ -36,6 +36,60 @@
   if (KN.viz && specCvs) KN.viz.initSpectrogram(specCvs);
   var vizFrame = 0;
 
+  var gestureWidget = document.getElementById('gestureWidget');
+  var bsGrid = document.getElementById('bsGrid');
+
+  // --- Blend shapes UI ---
+  var BLEND_KEYS = [
+    'eyeBlinkLeft', 'eyeBlinkRight',
+    'browInnerUp', 'browDownLeft', 'browDownRight',
+    'browOuterUpLeft', 'browOuterUpRight',
+    'mouthSmileLeft', 'mouthSmileRight',
+    'mouthFrownLeft', 'mouthFrownRight',
+    'mouthPucker', 'jawOpen',
+    'cheekPuff', 'cheekSquintLeft', 'cheekSquintRight',
+    'noseSneerLeft', 'noseSneerRight'
+  ];
+  var bsRows = {};
+
+  function buildBlendShapeRows() {
+    if (Object.keys(bsRows).length || !bsGrid) return;
+    for (var i = 0; i < BLEND_KEYS.length; i++) {
+      var key = BLEND_KEYS[i], row = document.createElement('div');
+      row.className = 'bs-row';
+      row.innerHTML = '<span class="bs-label">' + key + '</span><span class="bs-bar"><span class="bs-fill" style="width:0%"></span></span><span class="bs-val">0.00</span>';
+      bsGrid.appendChild(row);
+      bsRows[key] = { fill: row.querySelector('.bs-fill'), val: row.querySelector('.bs-val') };
+    }
+  }
+
+  function updateBlendShapes(categories) {
+    if (!categories || !Object.keys(bsRows).length) return;
+    var map = {};
+    for (var i = 0; i < categories.length; i++) map[categories[i].categoryName] = categories[i].score;
+    for (var j = 0; j < BLEND_KEYS.length; j++) {
+      var k = BLEND_KEYS[j], s = map[k] || 0, row = bsRows[k];
+      if (!row) continue;
+      row.fill.style.width = (s * 100).toFixed(1) + '%';
+      row.val.textContent = s.toFixed(2);
+    }
+  }
+
+  function updateGesture(gestures, handednesses) {
+    if (!gestureWidget) return;
+    if (!gestures || !gestures.length) { gestureWidget.style.display = 'none'; return; }
+    var parts = [];
+    for (var i = 0; i < gestures.length; i++) {
+      var g = gestures[i] && gestures[i][0];
+      if (!g || g.categoryName === 'None') continue;
+      var hl = (handednesses[i] && handednesses[i][0] && handednesses[i][0].displayName) || ('H' + (i+1));
+      parts.push('<span class="ghand">' + hl + '</span><span class="gname">' + g.categoryName + '</span><span class="gscore">' + (g.score*100).toFixed(0) + '%</span>');
+    }
+    if (!parts.length) { gestureWidget.style.display = 'none'; return; }
+    gestureWidget.innerHTML = parts.join(' &nbsp; ');
+    gestureWidget.style.display = 'block';
+  }
+
   var currentStream = null;
   var facingMode = 'environment';
   var running = false;
@@ -83,6 +137,9 @@
       try { KN.neuro.updateBehavior(stats.bestPoseLms, KN.neuro.MP_MAP); } catch (e) {}
       try { if (stats.bestFaceLms) KN.neuro.updateFace(stats.bestFaceLms); } catch (e) {}
     }
+    // Blend shapes + gestures
+    try { updateBlendShapes(stats.blendShapes); } catch (e) {}
+    try { updateGesture(stats.gestures, stats.gestureHandednesses); } catch (e) {}
   }
 
   function updateViz() {
@@ -150,7 +207,7 @@
     panel.classList.remove('hidden');
     [flipBtn, labelsBtn, anglesBtn, skeletonBtn, radarBtn, spectrogramBtn].forEach(function (b) { b.disabled = false; });
     startBtn.textContent = 'Stop'; startBtn.disabled = false;
-    running = true; clearPanel(); setStatus('');
+    running = true; clearPanel(); buildBlendShapeRows(); setStatus('');
     frameCount = 0; lastFpsUpdate = performance.now(); rafLoop();
   }
 
@@ -158,6 +215,7 @@
     running = false; if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     await stopCurrentStream();
     if (KN.viz) KN.viz.clearSpectrogram();
+    if (gestureWidget) gestureWidget.style.display = 'none';
     canvas.style.display = 'none'; fpsEl.style.display = 'none'; badge.style.display = 'none';
     panel.classList.add('hidden'); placeholder.style.display = 'flex';
     [flipBtn, labelsBtn, anglesBtn, skeletonBtn, radarBtn, spectrogramBtn].forEach(function (b) { b.disabled = true; });

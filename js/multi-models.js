@@ -9,11 +9,11 @@
   var TASKS_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + TASKS_VERSION + '/wasm';
   var POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
   var FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task';
-  var HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
+  var GESTURE_MODEL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/latest/gesture_recognizer.task';
 
   var poseLandmarker = null;
   var faceLandmarker = null;
-  var handLandmarker = null;
+  var gestureRecognizer = null;
   var modulePromise = null;
   var filesetPromise = null;
 
@@ -251,23 +251,24 @@
               baseOptions: { modelAssetPath: FACE_MODEL, delegate: 'GPU' },
               runningMode: 'VIDEO',
               numFaces: 6,
+              outputFaceBlendshapes: true,
               minFaceDetectionConfidence: 0.5,
               minFacePresenceConfidence: 0.5,
               minTrackingConfidence: 0.5
             }).then(function (lm) { faceLandmarker = lm; console.log('[kineneo-multi] FaceLandmarker ready'); })
           );
         }
-        if (!handLandmarker) {
-          progress('Downloading HandLandmarker model...');
+        if (!gestureRecognizer) {
+          progress('Downloading GestureRecognizer model...');
           tasks.push(
-            ctx.mod.HandLandmarker.createFromOptions(ctx.fileset, {
-              baseOptions: { modelAssetPath: HAND_MODEL, delegate: 'GPU' },
+            ctx.mod.GestureRecognizer.createFromOptions(ctx.fileset, {
+              baseOptions: { modelAssetPath: GESTURE_MODEL, delegate: 'GPU' },
               runningMode: 'VIDEO',
               numHands: 4,
               minHandDetectionConfidence: 0.5,
               minHandPresenceConfidence: 0.5,
               minTrackingConfidence: 0.5
-            }).then(function (lm) { handLandmarker = lm; console.log('[kineneo-multi] HandLandmarker ready'); })
+            }).then(function (gr) { gestureRecognizer = gr; console.log('[kineneo-multi] GestureRecognizer ready'); })
           );
         }
         progress('Loading all models...');
@@ -286,7 +287,7 @@
       var poseResult, faceResult, handResult;
       try { poseResult = poseLandmarker.detectForVideo(vid, ts); } catch (e) { poseResult = { landmarks: [] }; }
       try { faceResult = faceLandmarker ? faceLandmarker.detectForVideo(vid, ts) : { faceLandmarks: [] }; } catch (e) { faceResult = { faceLandmarks: [] }; }
-      try { handResult = handLandmarker ? handLandmarker.detectForVideo(vid, ts) : { landmarks: [] }; } catch (e) { handResult = { landmarks: [] }; }
+      try { handResult = gestureRecognizer ? gestureRecognizer.recognizeForVideo(vid, ts) : { landmarks: [], gestures: [], handednesses: [] }; } catch (e) { handResult = { landmarks: [], gestures: [], handednesses: [] }; }
 
       cx.save();
       cx.clearRect(0, 0, w, h);
@@ -407,7 +408,10 @@
         meanConfidence: confS / bestLms.length,
         jointAngles: ja,
         bestPoseLms: bestLms,
-        bestFaceLms: faces.length > 0 ? faces[0] : null
+        bestFaceLms: faces.length > 0 ? faces[0] : null,
+        blendShapes: (faceResult.faceBlendshapes && faceResult.faceBlendshapes[0]) ? faceResult.faceBlendshapes[0].categories : null,
+        gestures: handResult.gestures || [],
+        gestureHandednesses: handResult.handednesses || []
       });
     },
     clearState: clearAllPersonState,
@@ -415,7 +419,7 @@
       clearAllPersonState();
       if (poseLandmarker) { poseLandmarker.close(); poseLandmarker = null; }
       if (faceLandmarker) { faceLandmarker.close(); faceLandmarker = null; }
-      if (handLandmarker) { handLandmarker.close(); handLandmarker = null; }
+      if (gestureRecognizer) { gestureRecognizer.close(); gestureRecognizer = null; }
     }
   };
 
