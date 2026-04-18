@@ -155,6 +155,67 @@ button.toggle.on {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 .panel.hidden { display: none; }
+.vitals {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  padding: 6px 10px; margin: 0 0 10px 0;
+  background: rgba(5, 8, 16, 0.45);
+  border: 1px solid rgba(127, 216, 255, 0.10);
+  border-radius: 8px;
+  font-size: 11px;
+}
+.vital { display: flex; gap: 6px; align-items: baseline; }
+.vital .k { color: #7a7a7a; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; }
+.vital .v { color: #e8e8e8; }
+.vital .v.good { color: #00FF88; }
+.vital .v.warn { color: #ffb347; }
+.vital .v.bad { color: #ff6b6b; }
+.tab-bar {
+  display: flex; gap: 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 10px;
+}
+.tab-bar .tab {
+  background: transparent;
+  color: #888;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.tab-bar .tab:hover { color: #ccc; background: rgba(255,255,255,0.03); }
+.tab-bar .tab.active {
+  color: #7FD8FF;
+  border-bottom-color: #7FD8FF;
+}
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+.tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-right: 4px;
+  flex: 0 0 auto;
+  line-height: 1.3;
+}
+.tag-physio { background: rgba(0, 255, 136, 0.14); color: #00FF88; }
+.tag-neuro  { background: rgba(192, 132, 252, 0.16); color: #C084FC; }
+.tag-expr   { background: rgba(255, 170, 200, 0.14); color: #FFAAC8; }
+.tag-sig    { background: rgba(127, 216, 255, 0.14); color: #7FD8FF; }
+.tag-fun    { background: rgba(255, 179, 71, 0.14); color: #FFB347; }
+.muted-hint { color: #666; font-size: 10px; margin-top: 10px; font-style: italic; }
+.play-actions { margin-top: 10px; display: flex; gap: 8px; }
+#fingerTapCanvas {
+  background: rgba(5, 8, 16, 0.7);
+  border: 1px solid rgba(127, 216, 255, 0.12);
+  border-radius: 8px;
+  display: block; max-width: 100%;
+}
 .panel .section-title {
   color: #888;
   text-transform: uppercase;

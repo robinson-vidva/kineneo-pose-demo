@@ -554,7 +554,9 @@
         bestFaceLms: bestFace,
         blendShapes: bestBlendShapes,
         gestures: handResult.gestures || [],
-        gestureHandednesses: handResult.handednesses || handResult.handedness || []
+        gestureHandednesses: handResult.handednesses || handResult.handedness || [],
+        handLandmarks: hands,
+        handHandednesses: handedness
       });
     },
     clearState: clearAllPersonState,

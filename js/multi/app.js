@@ -43,6 +43,28 @@
   var gestureWidget = document.getElementById('gestureWidget');
   var bsGrid = document.getElementById('bsGrid');
 
+  var ftLrate = document.getElementById('ft_lrate');
+  var ftRrate = document.getElementById('ft_rrate');
+  var ftLtotal = document.getElementById('ft_ltotal');
+  var ftRtotal = document.getElementById('ft_rtotal');
+  var ftCanvas = document.getElementById('fingerTapCanvas');
+  var ftResetBtn = document.getElementById('ftResetBtn');
+  if (ftResetBtn && KN.playFingerTap) {
+    ftResetBtn.addEventListener('click', function () { KN.playFingerTap.reset(); });
+  }
+
+  var currentTab = 'body';
+  var tabButtons = document.querySelectorAll('.tab-bar .tab');
+  var tabPanes = document.querySelectorAll('.tab-pane');
+  for (var ti = 0; ti < tabButtons.length; ti++) {
+    tabButtons[ti].addEventListener('click', function () {
+      var name = this.getAttribute('data-tab');
+      currentTab = name;
+      for (var i = 0; i < tabButtons.length; i++) tabButtons[i].classList.toggle('active', tabButtons[i] === this);
+      for (var j = 0; j < tabPanes.length; j++) tabPanes[j].classList.toggle('active', tabPanes[j].getAttribute('data-pane') === name);
+    });
+  }
+
   // --- Blend shapes UI ---
   var BLEND_KEYS = [
     'eyeBlinkLeft', 'eyeBlinkRight',
@@ -140,6 +162,17 @@
     // Blend shapes + gestures
     try { updateBlendShapes(stats.blendShapes); } catch (e) {}
     try { updateGesture(stats.gestures, stats.gestureHandednesses); } catch (e) {}
+    // Finger-tap tracker runs every frame so taps count even off-tab
+    if (KN.playFingerTap) {
+      try { KN.playFingerTap.process(stats.handLandmarks, stats.handHandednesses, performance.now()); } catch (e) {}
+      try {
+        var lr = KN.playFingerTap.rate('L'), rr = KN.playFingerTap.rate('R');
+        if (ftLrate) H.setMetric(ftLrate, lr.toFixed(2), lr > 2 ? 'good' : null);
+        if (ftRrate) H.setMetric(ftRrate, rr.toFixed(2), rr > 2 ? 'good' : null);
+        if (ftLtotal) H.setMetric(ftLtotal, String(KN.playFingerTap.total('L')));
+        if (ftRtotal) H.setMetric(ftRtotal, String(KN.playFingerTap.total('R')));
+      } catch (e) {}
+    }
   }
 
   function updateViz() {
@@ -151,6 +184,9 @@
     if (KN.state.showSpectrogram && specCvs && (vizFrame % 3) === 0) {
       var spec = KN.neuro.getSpectrum();
       if (spec) { try { KN.viz.drawSpectrogramColumn(spec); } catch (e) {} }
+    }
+    if (currentTab === 'play' && ftCanvas && KN.playFingerTap && (vizFrame % 2) === 0) {
+      try { KN.playFingerTap.draw(ftCanvas); } catch (e) {}
     }
   }
 
