@@ -31,9 +31,6 @@
 
   KN.neuro.bindDom();
   if (KN.spark) KN.spark.bind();
-  var radarCvs = document.getElementById('neuroRadar');
-  var specCvs = document.getElementById('tremorSpectrogram');
-  if (KN.viz && specCvs) KN.viz.initSpectrogram(specCvs);
   var vizFrame = 0;
 
   var gestureWidget = document.getElementById('gestureWidget');
@@ -98,7 +95,7 @@
   if (hsResetBest && KN.playHoldStill) hsResetBest.addEventListener('click', function () { KN.playHoldStill.resetBest(); });
 
   var currentTab = 'body';
-  var currentSub = { body: 'angles', face: 'expression', signals: 'tremor', play: 'fingertap' };
+  var currentSub = { body: 'angles', face: 'expression', play: 'fingertap' };
   function isActive(main, sub) { return currentTab === main && (sub ? currentSub[main] === sub : true); }
   var tabButtons = document.querySelectorAll('.tab-bar .tab');
   var tabPanes = document.querySelectorAll('.tab-pane');
@@ -273,14 +270,6 @@
 
   function updateViz() {
     vizFrame++;
-    if (!KN.viz) return;
-    if (isActive('signals', 'radar') && radarCvs && (vizFrame % 8) === 0) {
-      try { KN.viz.drawRadar(radarCvs, KN.neuro.getLatest()); } catch (e) {}
-    }
-    if (isActive('signals', 'spectrogram') && specCvs && (vizFrame % 3) === 0) {
-      var spec = KN.neuro.getSpectrum();
-      if (spec) { try { KN.viz.drawSpectrogramColumn(spec); } catch (e) {} }
-    }
     if (isActive('play', 'fingertap') && ftCanvas && KN.playFingerTap && (vizFrame % 2) === 0) {
       try { KN.playFingerTap.draw(ftCanvas); } catch (e) {}
     }
@@ -356,7 +345,6 @@
   async function stop() {
     running = false; if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     await stopCurrentStream();
-    if (KN.viz) KN.viz.clearSpectrogram();
     if (gestureWidget) gestureWidget.style.display = 'none';
     canvas.style.display = 'none'; fpsEl.style.display = 'none'; badge.style.display = 'none';
     panel.classList.add('hidden'); placeholder.style.display = 'flex';

@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#1a1a1a" />
 <title>KineNeo - Multi-Person</title>
-<link rel="stylesheet" href="styles.css?v=50" />
+<link rel="stylesheet" href="styles.css?v=51" />
 </head>
 <body>
 <div class="app">
@@ -73,7 +73,6 @@
     <div class="tab-bar" role="tablist">
       <button class="tab active" data-tab="body" type="button">Body</button>
       <button class="tab" data-tab="face" type="button">Face</button>
-      <button class="tab" data-tab="signals" type="button">Signals</button>
       <button class="tab" data-tab="play" type="button">Play</button>
     </div>
 
@@ -110,6 +109,8 @@
           <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Stillness</span><span class="v" id="b_stillness">-</span></div>
           <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Motor symmetry</span><span class="v" id="n_motorsym">-</span></div>
           <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Postural sway</span><span class="v" id="n_sway">-</span></div>
+          <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Head tremor</span><span class="v" id="n_headtremor">-</span></div>
+          <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Tremor Hz</span><span class="v" id="n_tremorhz">-</span></div>
         </div>
       </div>
     </div>
@@ -117,22 +118,16 @@
     <div class="tab-pane" data-pane="face">
       <div class="subtab-bar" data-sub-of="face">
         <button class="subtab active" data-sub="expression" type="button">Expression</button>
-        <button class="subtab" data-sub="eyes" type="button">Eyes &amp; Mimicry</button>
         <button class="subtab" data-sub="blend" type="button">Blend Shapes</button>
       </div>
       <div class="subtab-pane active" data-subpane="face/expression">
         <div class="neuro-disclaimer">Research proof-of-concept. Not a medical device. Not for diagnosis.</div>
-        <div class="section-title">Expression</div>
+        <div class="section-title">Expression &amp; Eyes</div>
         <div class="kv-grid">
           <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Smile</span><span class="v" id="n_smile">-</span></div>
           <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Mouth</span><span class="v" id="n_mouth">-</span></div>
           <div class="kv"><span class="tag tag-expr">EXPR</span><span class="k">Brow</span><span class="v" id="n_brow">-</span></div>
           <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Facial symmetry</span><span class="v" id="n_facesym">-</span></div>
-        </div>
-      </div>
-      <div class="subtab-pane" data-subpane="face/eyes">
-        <div class="section-title">Eyes &amp; Mimicry</div>
-        <div class="kv-grid">
           <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Blink rate (/min)</span><span class="v" id="n_blink">-</span></div>
           <div class="kv"><span class="tag tag-neuro">NEURO</span><span class="k">Hypomimia</span><span class="v" id="n_hypo">-</span></div>
         </div>
@@ -140,33 +135,6 @@
       <div class="subtab-pane" data-subpane="face/blend">
         <div class="section-title">Face Blend Shapes (ARKit-style, 0–1)</div>
         <div class="bs-grid" id="bsGrid"></div>
-      </div>
-    </div>
-
-    <div class="tab-pane" data-pane="signals">
-      <div class="subtab-bar" data-sub-of="signals">
-        <button class="subtab active" data-sub="tremor" type="button">Tremor</button>
-        <button class="subtab" data-sub="radar" type="button">Radar</button>
-        <button class="subtab" data-sub="spectrogram" type="button">Spectrogram</button>
-      </div>
-      <div class="subtab-pane active" data-subpane="signals/tremor">
-        <div class="section-title">Tremor</div>
-        <div class="kv-grid">
-          <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Head tremor</span><span class="v" id="n_headtremor">-</span></div>
-          <div class="kv"><span class="tag tag-sig">SIG</span><span class="k">Tremor Hz</span><span class="v" id="n_tremorhz">-</span></div>
-        </div>
-      </div>
-      <div class="subtab-pane" data-subpane="signals/radar">
-        <div class="viz-block" id="radarBlock">
-          <div class="viz-label">Neuro Radar</div>
-          <canvas id="neuroRadar" width="240" height="220"></canvas>
-        </div>
-      </div>
-      <div class="subtab-pane" data-subpane="signals/spectrogram">
-        <div class="viz-block viz-spec" id="spectrogramBlock">
-          <div class="viz-label">Head Tremor Spectrogram &mdash; 0-15 Hz</div>
-          <canvas id="tremorSpectrogram" width="520" height="100"></canvas>
-        </div>
       </div>
     </div>
 
@@ -266,22 +234,21 @@
     </div>
   </div>
 
-  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">multi v21</span></footer>
+  <footer>No data is recorded or saved. All processing happens on your device. <a href="https://github.com/robinson-vidva/kineneo-demo" target="_blank" rel="noopener noreferrer" style="color:#aaa;">Source, license, and third-party notices on GitHub</a>. <span style="color:#555">multi v22</span></footer>
 </div>
 
 <video id="video" playsinline autoplay muted style="display:none;"></video>
 
 <!-- Multi-person only: completely isolated from Holistic (js/*) -->
-<script src="js/multi/helpers.js?v=50"></script>
-<script src="js/multi/spark.js?v=50"></script>
-<script src="js/multi/viz.js?v=50"></script>
-<script src="js/multi/neuro-core.js?v=50"></script>
-<script src="js/multi/neuro.js?v=50"></script>
-<script src="js/multi/models.js?v=50"></script>
-<script src="js/multi/play-fingertap.js?v=50"></script>
-<script src="js/multi/play-compass.js?v=50"></script>
-<script src="js/multi/play-reps.js?v=50"></script>
-<script src="js/multi/play-holdstill.js?v=50"></script>
-<script src="js/multi/app.js?v=50"></script>
+<script src="js/multi/helpers.js?v=51"></script>
+<script src="js/multi/spark.js?v=51"></script>
+<script src="js/multi/neuro-core.js?v=51"></script>
+<script src="js/multi/neuro.js?v=51"></script>
+<script src="js/multi/models.js?v=51"></script>
+<script src="js/multi/play-fingertap.js?v=51"></script>
+<script src="js/multi/play-compass.js?v=51"></script>
+<script src="js/multi/play-reps.js?v=51"></script>
+<script src="js/multi/play-holdstill.js?v=51"></script>
+<script src="js/multi/app.js?v=51"></script>
 </body>
 </html>

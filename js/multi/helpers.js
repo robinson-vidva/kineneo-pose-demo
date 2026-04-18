@@ -7,9 +7,7 @@
     showLabels: true,
     showAngles: true,
     skeletonOnly: false,
-    skeletonBg: 'none',  // 'none' | 'void'
-    showRadar: false,
-    showSpectrogram: false
+    skeletonBg: 'none'  // 'none' | 'void'
   };
 
   KN.constants = {
