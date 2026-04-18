@@ -21,6 +21,10 @@
   // Latest raw computed values, used by radar / spectrogram renderers.
   var latest = { sym: null, blink: null, sway: null, motor: null, hypo: null, smile: null };
 
+  // Primary-person continuity: track last nose position, reset state if person changes.
+  var lastNose = null;
+  var IDENTITY_JUMP_THRESHOLD = 0.15; // normalized coords — larger = different person
+
   // Named landmark map for MediaPipe Holistic/Pose body landmarks (33 indices).
   var MP_MAP = {
     nose: 0, lEar: 7, rEar: 8,
@@ -85,6 +89,7 @@
     state.fftBuf = [];
     state.lastSpectrum = null;
     latest.sym = latest.blink = latest.sway = latest.motor = latest.hypo = latest.smile = null;
+    lastNose = null;
   }
 
   function getLatest() { return latest; }
@@ -529,8 +534,22 @@
     return sum;
   }
 
+  function checkPersonContinuity(pose) {
+    if (!pose || !pose[0]) { lastNose = null; return; }
+    var nose = pose[0];
+    if (lastNose) {
+      var jump = Math.hypot(nose.x - lastNose.x, nose.y - lastNose.y);
+      if (jump > IDENTITY_JUMP_THRESHOLD) {
+        console.log('[kineneo] primary person changed (jump=' + jump.toFixed(3) + '), resetting neuro state');
+        resetState();
+      }
+    }
+    lastNose = { x: nose.x, y: nose.y };
+  }
+
   function update(face, pose, jointAngles) {
     var now = performance.now();
+    checkPersonContinuity(pose);
 
     var sym = computeFaceSymmetry(face);
     latest.sym = sym;
