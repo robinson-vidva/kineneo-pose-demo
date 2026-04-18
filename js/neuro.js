@@ -271,7 +271,7 @@
         var p = lm[STILL_ANCHORS[ai]];
         if (p && conf(p) > 0.5) { xs += p.x; ys += p.y; n++; }
       }
-      if (n >= 3) summary = { t: now, x: xs / n, y: ys / n };
+      if (n >= 2) summary = { t: now, x: xs / n, y: ys / n };
     }
     if (!summary) return null;
     state.allLmHistory.push(summary);
