@@ -21,7 +21,6 @@
   // Latest raw computed values, used by radar / spectrogram renderers.
   var latest = { sym: null, blink: null, sway: null, motor: null, hypo: null, smile: null };
 
-
   // Named landmark map for MediaPipe Holistic/Pose body landmarks (33 indices).
   var MP_MAP = {
     nose: 0, lEar: 7, rEar: 8,
@@ -273,18 +272,11 @@
     state.allLmHistory.push(summary);
     var cutoff = now - 1000;
     while (state.allLmHistory.length && state.allLmHistory[0].t < cutoff) state.allLmHistory.shift();
-    if (state.allLmHistory.length < 5) return null;
-    // Use median displacement across the window rather than first-to-last
-    // to absorb landmark jitter.
-    var mx = 0, my = 0;
-    for (var mi = 0; mi < state.allLmHistory.length; mi++) { mx += state.allLmHistory[mi].x; my += state.allLmHistory[mi].y; }
-    mx /= state.allLmHistory.length; my /= state.allLmHistory.length;
-    var variance = 0;
-    for (var vi = 0; vi < state.allLmHistory.length; vi++) {
-      variance += Math.pow(state.allLmHistory[vi].x - mx, 2) + Math.pow(state.allLmHistory[vi].y - my, 2);
-    }
-    var speed = Math.sqrt(variance / state.allLmHistory.length);
-    return speed < 0.008 ? 'still' : 'moving';
+    if (state.allLmHistory.length < 3) return null;
+    var first = state.allLmHistory[0], last = state.allLmHistory[state.allLmHistory.length - 1];
+    var dx = last.x - first.x, dy = last.y - first.y;
+    var speed = Math.hypot(dx, dy); // normalized coords/sec-ish
+    return speed < 0.01 ? 'still' : 'moving';
   }
 
   // Head tremor: std-dev of nose position over last 1.5s, normalized by inter-eye distance.
